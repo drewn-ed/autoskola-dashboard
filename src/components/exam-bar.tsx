@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { go } from '@/lib/data';
+import { EASE_OUT } from '@/lib/motion';
 import { PASS_SCORE, type AreaStat } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +32,7 @@ export function ExamBar({ areas }: { areas: AreaStat[] }) {
                   type="button"
                   onClick={() => go(`/procvicovani/${a.key}`)}
                   className={cn(
-                    'relative h-full overflow-hidden bg-unseen transition-[filter] outline-none hover:brightness-95 focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'pressable relative h-full overflow-hidden bg-unseen outline-none hover:brightness-95 focus-visible:ring-3 focus-visible:ring-ring/50',
                     i === 0 && 'rounded-l-md',
                     i === sorted.length - 1 && 'rounded-r-md',
                   )}
@@ -39,10 +40,10 @@ export function ExamBar({ areas }: { areas: AreaStat[] }) {
                   aria-label={`${a.name}: odhad ${fmt(a.expectedPoints)} z ${a.maxPoints} bodů`}
                 >
                   <motion.span
-                    className="absolute inset-y-0 left-0 bg-sign"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(a.expectedPoints / a.maxPoints) * 100}%` }}
-                    transition={{ duration: 0.7, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0 origin-left bg-sign"
+                    initial={{ transform: 'scaleX(0)' }}
+                    animate={{ transform: `scaleX(${a.expectedPoints / a.maxPoints})` }}
+                    transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE_OUT }}
                   />
                 </button>
               </TooltipTrigger>

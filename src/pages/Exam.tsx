@@ -16,6 +16,7 @@ import { api, type Question } from '@/lib/api';
 import { go, useData } from '@/lib/data';
 import { areaStats, EXAM_LAYOUT, EXAM_MINUTES, generateExam, PASS_SCORE } from '@/lib/stats';
 import { examSession } from '@/lib/exam-session';
+import { EASE_MOVE, EASE_OUT, POP } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 export default function Exam() {
@@ -72,7 +73,7 @@ export default function Exam() {
       examSession.set(null);
       await refresh();
       toast.success('Zkouška vyhodnocena a uložena do historie');
-      go(`/historie/${id}`);
+      go(`/historie/${id}?nova`);
     } catch (e) {
       setSaving(false);
       toast.error(`Zkoušku se nepodařilo uložit: ${(e as Error).message}`);
@@ -201,7 +202,7 @@ export default function Exam() {
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
         <div className="flex min-w-0 flex-col gap-4 lg:order-1">
           <AnimatePresence mode="wait">
-            <motion.div key={q.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.18, ease: 'easeOut' }}>
+            <motion.div key={q.id} initial={{ opacity: 0, transform: 'translateX(20px)' }} animate={{ opacity: 1, transform: 'translateX(0px)' }} exit={{ opacity: 0, transform: 'translateX(-20px)' }} transition={{ duration: 0.18, ease: EASE_OUT }}>
               <Card>
                 <CardHeader>
                   <CardDescription className="num">Otázka {idx + 1} z {questions.length}</CardDescription>
@@ -240,12 +241,23 @@ export default function Exam() {
                   aria-label={`Otázka ${i + 1}${chosen[qq.id] ? ', zodpovězeno' : ''}`}
                   aria-current={i === idx}
                   className={cn(
-                    'num aspect-square rounded-md border text-xs transition-colors outline-none hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring',
+                    'num pressable relative aspect-square rounded-md border text-xs outline-none hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring',
                     chosen[qq.id] ? 'border-transparent bg-foreground text-background' : 'bg-card text-muted-foreground',
-                    i === idx && 'ring-2 ring-sign ring-offset-2 ring-offset-card',
                   )}
                 >
-                  {i + 1}
+                  {/* Rámeček aktuální otázky se mezi buňkami přesouvá (ukazuje, kam jsi skočil) */}
+                  {i === idx && (
+                    <motion.span layoutId="exam-current" className="pointer-events-none absolute -inset-[4px] rounded-[9px] ring-2 ring-sign" transition={{ duration: 0.2, ease: EASE_MOVE }} />
+                  )}
+                  <motion.span
+                    key={chosen[qq.id] ? 'answered' : 'open'}
+                    className="relative grid size-full place-items-center"
+                    initial={chosen[qq.id] ? { transform: 'scale(0.6)' } : false}
+                    animate={{ transform: 'scale(1)' }}
+                    transition={POP}
+                  >
+                    {i + 1}
+                  </motion.span>
                 </button>
               ))}
             </div>

@@ -27,7 +27,7 @@ export function QuestionMap() {
                   onClick={() => setOpen(q)}
                   title={q.text}
                   aria-label={q.text}
-                  className={cn('size-[9px] rounded-[2px] transition-transform outline-none hover:scale-150 focus-visible:scale-150 focus-visible:ring-2 focus-visible:ring-ring', DOT[status(q)])}
+                  className={cn('size-[9px] rounded-[2px] transition-transform duration-150 ease-snappy outline-none hover:scale-150 focus-visible:scale-150 focus-visible:ring-2 focus-visible:ring-ring active:scale-90', DOT[status(q)])}
                 />
               ))}
             </div>

@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DataProvider, useRoute } from '@/lib/data';
+import { EASE_OUT } from '@/lib/motion';
 import Overview from '@/pages/Overview';
 import Exam from '@/pages/Exam';
 import Practice from '@/pages/Practice';
@@ -69,9 +70,9 @@ export default function App() {
               </header>
               <motion.main
                 key={`${page}/${param ?? ''}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                initial={{ opacity: 0, transform: 'translateY(6px)' }}
+                animate={{ opacity: 1, transform: 'translateY(0px)' }}
+                transition={{ duration: 0.18, ease: EASE_OUT }}
                 className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-4 py-6 md:px-8 md:py-8"
               >
                 <Page page={page} param={param} />

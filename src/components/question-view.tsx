@@ -1,9 +1,10 @@
 import { CheckIcon, XIcon } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { mediaUrl, type Media, type Question, type Snapshot } from '@/lib/api';
 import { useData } from '@/lib/data';
 import { LETTERS } from '@/lib/stats';
+import { EASE_OUT, POP } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 export function MediaView({ media, className }: { media: Media; className?: string }) {
@@ -18,33 +19,52 @@ export const pointsLabel = (n: number) => `${n} ${n === 1 ? 'bod' : n < 5 ? 'bod
 
 type AnswerState = 'idle' | 'selected' | 'correct' | 'wrong' | 'dim';
 
+// Odhalení výsledku: chyba se krátce zatřese, správná odpověď jemně "nadechne".
+// Animuje se jen transform a jen při změně stavu (vzácné, jednou za otázku).
+const REVEAL = {
+  wrong: { transform: ['translateX(0px)', 'translateX(-6px)', 'translateX(6px)', 'translateX(-3px)', 'translateX(3px)', 'translateX(0px)'] },
+  correct: { transform: ['scale(1)', 'scale(1.015)', 'scale(1)'] },
+};
+
 function AnswerOption({ index, state, onClick, children }: { index: number; state: AnswerState; onClick?: () => void; children: React.ReactNode }) {
+  const reduce = useReducedMotion();
   const Comp = onClick ? motion.button : motion.div;
+  const reveal = !reduce && (state === 'wrong' || state === 'correct') ? REVEAL[state] : undefined;
   return (
     <Comp
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      whileTap={onClick ? { scale: 0.99 } : undefined}
-      animate={state === 'wrong' ? { x: [0, -6, 6, -4, 4, 0] } : { x: 0 }}
-      transition={{ duration: 0.35 }}
+      animate={reveal}
+      transition={{ duration: state === 'wrong' ? 0.35 : 0.3, ease: EASE_OUT }}
       className={cn(
-        'group flex w-full items-start gap-3 rounded-lg border bg-card px-3.5 py-3 text-left text-[15px] leading-relaxed transition-colors outline-none',
-        onClick && 'cursor-pointer hover:border-foreground/30 hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/40',
+        'group flex w-full items-start gap-3 rounded-lg border bg-card px-3.5 py-3 text-left text-[15px] leading-relaxed outline-none',
+        'transition-[background-color,border-color,color,opacity] duration-200 ease-snappy',
+        onClick && 'pressable-soft cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/40 [@media(hover:hover)_and_(pointer:fine)]:hover:border-foreground/30 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-muted/50',
         state === 'selected' && 'border-foreground bg-muted/60',
         state === 'correct' && 'border-positive bg-positive-soft text-positive-ink',
         state === 'wrong' && 'border-negative bg-negative-soft text-negative-ink',
-        state === 'dim' && 'opacity-60',
+        state === 'dim' && 'opacity-55',
       )}
     >
       <span
         className={cn(
-          'mt-px grid size-6 shrink-0 place-items-center rounded-md border text-xs font-medium text-muted-foreground transition-colors',
+          'mt-px grid size-6 shrink-0 place-items-center rounded-md border text-xs font-medium text-muted-foreground transition-[background-color,border-color,color] duration-150 ease-snappy',
           state === 'selected' && 'border-foreground bg-foreground text-background',
           state === 'correct' && 'border-positive bg-positive text-white',
           state === 'wrong' && 'border-negative bg-negative text-white',
         )}
       >
-        {state === 'correct' ? <CheckIcon className="size-3.5" /> : state === 'wrong' ? <XIcon className="size-3.5" /> : LETTERS[index]}
+        {state === 'correct' || state === 'wrong' ? (
+          <motion.span
+            key={state}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.5)' }}
+            animate={reduce ? { opacity: 1 } : { opacity: 1, transform: 'scale(1)' }}
+            transition={POP}
+            className="grid place-items-center"
+          >
+            {state === 'correct' ? <CheckIcon className="size-3.5" /> : <XIcon className="size-3.5" />}
+          </motion.span>
+        ) : LETTERS[index]}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-2">{children}</span>
     </Comp>

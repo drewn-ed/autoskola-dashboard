@@ -52,7 +52,7 @@ export function SearchCommand() {
         <span>Hledat</span>
         <Kbd className="ml-auto group-data-[collapsible=icon]:hidden">⌘K</Kbd>
       </SidebarMenuButton>
-      <CommandDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQuery(''); }} title="Hledat" description="Hledej otázku podle textu, odpovědi nebo kódu, nebo přejdi na stránku.">
+      <CommandDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQuery(''); }} className="data-open:animate-none data-closed:animate-none" title="Hledat" description="Hledej otázku podle textu, odpovědi nebo kódu, nebo přejdi na stránku.">
         <Command shouldFilter={false}>
           <CommandInput value={query} onValueChange={setQuery} placeholder="Hledat otázku nebo stránku…" />
           <CommandList className="max-h-[420px]">

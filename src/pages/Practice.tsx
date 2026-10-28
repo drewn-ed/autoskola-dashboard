@@ -13,6 +13,16 @@ import { api, type Question } from '@/lib/api';
 import { go, useData } from '@/lib/data';
 import { areaStats, MASTER_STREAK, pickPractice, pickWrong, shuffle, statusOf } from '@/lib/stats';
 import { cn } from '@/lib/utils';
+import { celebrate, CountUp, EASE_OUT, POP } from '@/lib/motion';
+
+/** Počítadlo, které při změně krátce "cvakne" */
+function Bump({ value }: { value: number }) {
+  return (
+    <motion.span key={value} initial={value ? { transform: 'scale(1.4)' } : false} animate={{ transform: 'scale(1)' }} transition={POP} className="inline-block">
+      {value}
+    </motion.span>
+  );
+}
 
 const SESSION = 20;
 
@@ -33,8 +43,8 @@ function Menu() {
       <PageHeader title="Procvičování" description={`Kolo má ${SESSION} otázek a po každé odpovědi hned vidíš, jestli byla správně. Odpovídat můžeš klávesami A, B, C.`} />
       <div className="grid gap-4 sm:grid-cols-3">
         {modes.map((m) => (
-          <a key={m.href} href={m.href} className="group rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <Card className="h-full gap-1 py-5 transition-colors group-hover:border-foreground/25 group-active:scale-[0.995]">
+          <a key={m.href} href={m.href} className="group pressable-soft rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <Card className="h-full gap-1 py-5 transition-colors duration-150 group-hover:border-foreground/25">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-normal text-muted-foreground">{m.title}</CardTitle>
                 <m.icon className="size-4 text-muted-foreground" />
@@ -44,7 +54,7 @@ function Menu() {
                   <span className={cn('num text-3xl', m.tone)}>{m.value.toLocaleString('cs-CZ')}</span>
                   <span className="text-xs text-muted-foreground">{m.sub}</span>
                 </span>
-                <ArrowRightIcon className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+                <ArrowRightIcon className="size-4 text-muted-foreground transition-transform duration-200 ease-snappy group-hover:translate-x-1 group-hover:text-foreground" />
               </CardContent>
             </Card>
           </a>
@@ -137,6 +147,11 @@ function Session({ mode }: { mode: string }) {
     shownAt.current = Date.now();
   };
 
+  // Bezchybné kolo (aspoň 5 otázek) si zaslouží oslavu
+  useEffect(() => {
+    if (done && results.length >= 5 && results.every(Boolean)) setTimeout(celebrate, 250);
+  }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || !q || (e.target instanceof Element && e.target.closest('input, textarea, [role=dialog]'))) return;
@@ -175,11 +190,11 @@ function Session({ mode }: { mode: string }) {
     return (
       <>
         <PageHeader back={back} title={title} />
-        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
+        <motion.div initial={{ opacity: 0, transform: 'scale(0.97)' }} animate={{ opacity: 1, transform: 'scale(1)' }} transition={{ type: 'spring', duration: 0.45, bounce: 0.2 }}>
           <Card className="mx-auto w-full max-w-xl items-center py-10 text-center">
             <CardContent className="flex flex-col items-center gap-2">
               <span className="text-sm text-muted-foreground">Kolo dokončeno</span>
-              <span className="num text-5xl font-medium tracking-tight">{ok} <span className="text-2xl text-muted-foreground">/ {results.length}</span></span>
+              <span className="num text-5xl font-medium tracking-tight"><CountUp value={ok} duration={0.6} /> <span className="text-2xl text-muted-foreground">/ {results.length}</span></span>
               <span className="num text-sm text-muted-foreground">{pct} % správně{missed > 0 && ` · ${missed} ${missed === 1 ? 'chyba je' : missed < 5 ? 'chyby jsou' : 'chyb je'} v chybovníku`}</span>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <Button variant="outline" asChild><a href="#/procvicovani">Zpět na výběr</a></Button>
@@ -201,8 +216,8 @@ function Session({ mode }: { mode: string }) {
         title={title}
         actions={
           <div className="flex items-center gap-3 text-sm" aria-label="Skóre kola">
-            <span className="num flex items-center gap-1 text-positive"><CheckIcon className="size-4" />{ok}</span>
-            <span className="num flex items-center gap-1 text-negative"><XIcon className="size-4" />{results.length - ok}</span>
+            <span className="num flex items-center gap-1 text-positive"><CheckIcon className="size-4" /><Bump value={ok} /></span>
+            <span className="num flex items-center gap-1 text-negative"><XIcon className="size-4" /><Bump value={results.length - ok} /></span>
           </div>
         }
       />
@@ -214,10 +229,10 @@ function Session({ mode }: { mode: string }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={q.id}
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -24 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          initial={{ opacity: 0, transform: 'translateX(24px)' }}
+          animate={{ opacity: 1, transform: 'translateX(0px)' }}
+          exit={{ opacity: 0, transform: 'translateX(-24px)' }}
+          transition={{ duration: 0.2, ease: EASE_OUT }}
         >
           <Card>
             <CardContent className="flex flex-col gap-5">
@@ -228,8 +243,8 @@ function Session({ mode }: { mode: string }) {
               <AnimatePresence>
                 {selected != null && (
                   <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, transform: 'translateY(8px)' }}
+                    animate={{ opacity: 1, transform: 'translateY(0px)' }}
                     transition={{ duration: 0.2 }}
                     className={cn('flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm', isCorrect ? 'bg-positive-soft text-positive-ink' : 'bg-negative-soft text-negative-ink')}
                   >

@@ -121,7 +121,7 @@ export default function Overview() {
                 key={q.id}
                 type="button"
                 onClick={() => setOpen(q)}
-                className="-mx-2 flex items-center gap-3 rounded-md border-b border-rule px-2 py-2.5 text-left text-sm transition-colors outline-none last:border-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                className="pressable-soft -mx-2 flex items-center gap-3 rounded-md border-b border-rule px-2 py-2.5 text-left text-sm outline-none last:border-0 hover:bg-muted active:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-foreground">{q.text}</span>

@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,6 +8,8 @@ import { QuestionView } from '@/components/question-view';
 import type { Question } from '@/lib/api';
 import { useData } from '@/lib/data';
 import { formatDate, MASTER_STREAK, type Status } from '@/lib/stats';
+import { POP } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 
 export const STATUS_LABEL: Record<Status, string> = { unseen: 'Neviděná', wrong: 'V chybovníku', known: 'Umím' };
 
@@ -19,7 +22,13 @@ export function StreakDots({ streak }: { streak: number }) {
   return (
     <span className="inline-flex items-center gap-1" aria-label={`${Math.min(streak, MASTER_STREAK)} z ${MASTER_STREAK} správně po sobě`}>
       {Array.from({ length: MASTER_STREAK }, (_, i) => (
-        <span key={i} className={i < streak ? 'size-2 rounded-full bg-positive' : 'size-2 rounded-full bg-unseen'} />
+        <motion.span
+          key={i}
+          initial={false}
+          animate={{ transform: i < streak ? 'scale(1)' : 'scale(0.8)' }}
+          transition={{ ...POP, delay: i * 0.06 }}
+          className={cn('size-2 rounded-full transition-colors duration-200', i < streak ? 'bg-positive' : 'bg-unseen')}
+        />
       ))}
     </span>
   );

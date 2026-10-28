@@ -138,12 +138,12 @@ export default function Catalog() {
                     type="button"
                     onClick={() => setOpen(q)}
                     className={cn(
-                      'group flex flex-col gap-2 rounded-lg border bg-card p-2.5 text-left transition-colors outline-none hover:border-foreground/30 focus-visible:ring-3 focus-visible:ring-ring/50',
+                      'group pressable flex flex-col gap-2 rounded-lg border bg-card p-2.5 text-left outline-none hover:border-foreground/30 focus-visible:ring-3 focus-visible:ring-ring/50',
                       s === 'known' && 'border-b-2 border-b-sign',
                       s === 'wrong' && 'border-b-2 border-b-negative',
                     )}
                   >
-                    <img src={mediaUrl(q.media!)} alt="" loading="lazy" className="aspect-[4/3] w-full rounded object-contain transition-transform group-hover:scale-[1.03]" />
+                    <img src={mediaUrl(q.media!)} alt="" loading="lazy" className="aspect-[4/3] w-full rounded object-contain transition-transform duration-200 ease-snappy [@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.04]" />
                     <span className="line-clamp-2 text-xs text-muted-foreground">{q.answers.find((a) => a.id === q.correct)?.text}</span>
                   </button>
                 );

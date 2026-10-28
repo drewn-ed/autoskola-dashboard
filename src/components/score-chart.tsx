@@ -34,8 +34,7 @@ export function ScoreChart({ tests }: { tests: TestSummary[] }) {
           strokeWidth={2}
           dot={{ r: 3.5, fill: 'var(--color-body)', strokeWidth: 0 }}
           activeDot={{ r: 5, onClick: (_: unknown, e: unknown) => go(`/historie/${(e as { payload: { id: number } }).payload.id}`), style: { cursor: 'pointer' } }}
-          isAnimationActive
-          animationDuration={700}
+          isAnimationActive={false}
         />
       </LineChart>
     </ChartContainer>

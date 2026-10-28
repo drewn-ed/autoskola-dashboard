@@ -17,6 +17,7 @@ import { api, type Snapshot, type TestDetail, type TestItem } from '@/lib/api';
 import { go, useData } from '@/lib/data';
 import { formatDate, formatDuration, PASS_SCORE } from '@/lib/stats';
 import { cn } from '@/lib/utils';
+import { celebrate, CountUp } from '@/lib/motion';
 import { ResultBadge, SOURCE_LABEL } from './History';
 
 export default function TestDetailPage({ id }: { id: number }) {
@@ -26,9 +27,15 @@ export default function TestDetailPage({ id }: { id: number }) {
   const [filter, setFilter] = useState<'all' | 'wrong'>('all');
   const [open, setOpen] = useState<TestItem | null>(null);
 
+  // Čerstvě vyhodnocená zkouška (přišli jsme z ní): jednou se odehraje výsledek
+  const [fresh] = useState(() => location.hash.includes('?nova'));
   useEffect(() => {
     api.test(id).then(setTest, (e) => setError(e.message));
-  }, [id]);
+    if (fresh) history.replaceState(null, '', `#/historie/${id}`);
+  }, [id, fresh]);
+  useEffect(() => {
+    if (fresh && test && test.score >= (test.pass_score ?? PASS_SCORE)) setTimeout(celebrate, 350);
+  }, [fresh, test]);
 
   if (error) return <p className="text-sm text-muted-foreground">{error}</p>;
   if (!test) return <div className="flex flex-col gap-4"><Skeleton className="h-10 w-80" /><Skeleton className="h-24 w-full" /><Skeleton className="h-96 w-full" /></div>;
@@ -75,7 +82,7 @@ export default function TestDetailPage({ id }: { id: number }) {
       <Card className="py-0">
         <CardContent className="grid grid-cols-2 divide-border px-0 md:grid-cols-4 md:divide-x">
           <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Výsledek</span><span className="pt-1"><ResultBadge ok={ok} /></span><span className="text-xs text-muted-foreground">potřeba {test.pass_score ?? PASS_SCORE} bodů</span></div>
-          <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Body</span><span className="num text-3xl font-medium">{test.score}<span className="text-base font-normal text-muted-foreground"> / {test.max_score}</span></span></div>
+          <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Body</span><span className="num text-3xl font-medium">{fresh ? <CountUp value={test.score} /> : test.score}<span className="text-base font-normal text-muted-foreground"> / {test.max_score}</span></span></div>
           <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Správně</span><span className="num text-3xl">{test.correct_count}<span className="text-base text-muted-foreground"> / {test.total}</span></span></div>
           <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Čas</span><span className="num text-3xl">{formatDuration(test.duration_s).replace(' min', '')}<span className="text-base text-muted-foreground"> min</span></span></div>
         </CardContent>
@@ -120,7 +127,7 @@ export default function TestDetailPage({ id }: { id: number }) {
                   key={it.pos}
                   type="button"
                   onClick={() => setOpen(it)}
-                  className="-mx-2 flex items-start gap-3 rounded-md border-b border-rule px-2 py-3 text-left transition-colors outline-none last:border-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                  className="pressable-soft -mx-2 flex items-start gap-3 rounded-md border-b border-rule px-2 py-3 text-left outline-none last:border-0 hover:bg-muted active:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="num w-6 shrink-0 pt-0.5 text-right text-sm text-muted-foreground">{it.pos}.</span>
                   <span className={cn('mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-white', it.is_correct ? 'bg-positive' : 'bg-negative')}>

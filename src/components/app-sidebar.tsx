@@ -10,7 +10,9 @@ import {
   SunIcon,
   TargetIcon,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useTheme } from 'next-themes';
+import { POP } from '@/lib/motion';
 import {
   Sidebar,
   SidebarContent,
@@ -68,7 +70,13 @@ export function AppSidebar({ page }: { page: string }) {
           <span>{n.label}</span>
         </a>
       </SidebarMenuButton>
-      {n.count && counts.wrong > 0 && <SidebarMenuBadge className="num">{counts.wrong}</SidebarMenuBadge>}
+      {n.count && counts.wrong > 0 && (
+        <SidebarMenuBadge className="num">
+          <motion.span key={counts.wrong} initial={{ transform: 'scale(1.35)', opacity: 0.4 }} animate={{ transform: 'scale(1)', opacity: 1 }} transition={POP}>
+            {counts.wrong}
+          </motion.span>
+        </SidebarMenuBadge>
+      )}
       {n.running && examRunning && (
         <SidebarMenuBadge className="gap-1.5 text-sign">
           <span className="size-1.5 animate-pulse rounded-full bg-sign" />běží
@@ -80,7 +88,7 @@ export function AppSidebar({ page }: { page: string }) {
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="border-r-0">
       <SidebarHeader className="px-3 pt-4 pb-2">
-        <a href="#/" className="flex items-center gap-2.5 rounded-md px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <a href="#/" className="pressable flex items-center gap-2.5 rounded-md px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <ProductMark className="size-8 shrink-0" />
           <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate font-medium text-foreground">Autoškola</span>
