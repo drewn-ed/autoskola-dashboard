@@ -28,7 +28,7 @@ const exists = (p) => access(p).then(() => true, () => false);
 async function get(url, as = 'text', tries = 4) {
   for (let i = 0; ; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
       if (!res.ok) throw new Error(`${res.status} ${url}`);
       return as === 'json' ? await res.json() : as === 'buffer' ? Buffer.from(await res.arrayBuffer()) : await res.text();
     } catch (e) {
