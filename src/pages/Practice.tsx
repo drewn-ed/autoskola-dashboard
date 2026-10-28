@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, type Question } from '../api';
-import { useData } from '../App';
-import QuestionView from '../components/QuestionView';
-import { areaStats, MASTER_STREAK, pickPractice, pickWrong, shuffle, statusOf } from '../stats';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, RotateCcwIcon, ShuffleIcon, SparklesIcon, XIcon } from 'lucide-react';
+import { PageHeader } from '@/components/page-header';
+import { QuestionView } from '@/components/question-view';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Kbd } from '@/components/ui/kbd';
+import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { api, type Question } from '@/lib/api';
+import { go, useData } from '@/lib/data';
+import { areaStats, MASTER_STREAK, pickPractice, pickWrong, shuffle, statusOf } from '@/lib/stats';
+import { cn } from '@/lib/utils';
 
 const SESSION = 20;
 
@@ -11,46 +21,74 @@ export default function Practice({ mode }: { mode?: string }) {
 }
 
 function Menu() {
-  const { bank, stats } = useData();
+  const { bank, stats, counts } = useData();
   const areas = areaStats(bank, stats);
-  const wrong = bank.questions.filter((q) => statusOf(stats.get(q.id)) === 'wrong').length;
-  const unseen = bank.questions.filter((q) => statusOf(stats.get(q.id)) === 'unseen').length;
+  const modes = [
+    { href: '#/procvicovani/chyby', icon: RotateCcwIcon, title: 'Chybovník', value: counts.wrong, sub: 'otázek ke zopakování', tone: counts.wrong ? 'text-negative' : 'text-muted-foreground' },
+    { href: '#/procvicovani/nove', icon: SparklesIcon, title: 'Neviděné otázky', value: counts.unseen, sub: 'ještě jsi je neviděl', tone: 'text-foreground' },
+    { href: '#/procvicovani/vse', icon: ShuffleIcon, title: 'Mix všech okruhů', value: bank.questions.length, sub: 'nejdřív chyby, pak nové', tone: 'text-foreground' },
+  ];
   return (
     <>
-      <div className="page-head"><h1>Procvičování</h1></div>
-      <p className="muted lead">Po každé odpovědi hned uvidíš, jestli byla správně. Kolo má {SESSION} otázek. Nejdřív přicházejí na řadu otázky z chybovníku, pak neviděné.</p>
-      <div className="tiles">
-        <a className="tile accent-bad" href="#/procvicovani/chyby">
-          <div className="tile-title">Chybovník</div>
-          <div className="tile-num">{wrong}</div>
-          <div className="muted">otázek ke zopakování</div>
-        </a>
-        <a className="tile" href="#/procvicovani/nove">
-          <div className="tile-title">Neviděné otázky</div>
-          <div className="tile-num">{unseen}</div>
-          <div className="muted">ještě jsi je neviděl</div>
-        </a>
-        <a className="tile" href="#/procvicovani/vse">
-          <div className="tile-title">Mix ze všech okruhů</div>
-          <div className="tile-num">{bank.questions.length}</div>
-          <div className="muted">otázek celkem</div>
-        </a>
-      </div>
-      <h3 className="section-title">Podle okruhu</h3>
-      <div className="tiles">
-        {areas.map((a) => (
-          <a className="tile" key={a.key} href={`#/procvicovani/${a.key}`}>
-            <div className="tile-title">{a.name}</div>
-            <div className="stack small">
-              <div className="s-known" style={{ width: `${(a.known / a.total) * 100}%` }} />
-              <div className="s-wrong" style={{ width: `${(a.wrong / a.total) * 100}%` }} />
-            </div>
-            <div className="muted">
-              {a.total} otázek · <span className="good">{a.known} umím</span> · <span className="bad">{a.wrong} chyb</span> · {a.unseen} neviděno
-            </div>
+      <PageHeader title="Procvičování" description={`Kolo má ${SESSION} otázek a po každé odpovědi hned vidíš, jestli byla správně. Odpovídat můžeš klávesami A, B, C.`} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        {modes.map((m) => (
+          <a key={m.href} href={m.href} className="group rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <Card className="h-full gap-1 py-5 transition-colors group-hover:border-foreground/25 group-active:scale-[0.995]">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-normal text-muted-foreground">{m.title}</CardTitle>
+                <m.icon className="size-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="flex items-end justify-between gap-2">
+                <span className="flex flex-col">
+                  <span className={cn('num text-3xl', m.tone)}>{m.value.toLocaleString('cs-CZ')}</span>
+                  <span className="text-xs text-muted-foreground">{m.sub}</span>
+                </span>
+                <ArrowRightIcon className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </CardContent>
+            </Card>
           </a>
         ))}
       </div>
+      <Card className="gap-2">
+        <CardHeader>
+          <CardTitle>Podle okruhu</CardTitle>
+          <CardDescription>Nejdřív přijdou na řadu tvoje chyby z okruhu, pak neviděné otázky.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-2 sm:px-4">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Okruh</TableHead>
+                <TableHead className="hidden w-[28%] md:table-cell">Postup</TableHead>
+                <TableHead className="text-right">Umím</TableHead>
+                <TableHead className="text-right">Chyby</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Neviděno</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Úspěšnost</TableHead>
+                <TableHead className="w-0" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {areas.map((a) => (
+                <TableRow key={a.key} className="h-12 cursor-pointer" onClick={() => go(`/procvicovani/${a.key}`)}>
+                  <TableCell className="font-medium">{a.name} <span className="num font-normal text-muted-foreground">· {a.total}</span></TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <div className="flex h-1.5 overflow-hidden rounded-full bg-unseen">
+                      <div className="bg-sign" style={{ width: `${(a.known / a.total) * 100}%` }} />
+                      <div className="bg-negative" style={{ width: `${(a.wrong / a.total) * 100}%` }} />
+                    </div>
+                  </TableCell>
+                  <TableCell className="num text-right">{a.known}</TableCell>
+                  <TableCell className={cn('num text-right', a.wrong ? 'text-negative' : 'text-muted-foreground')}>{a.wrong}</TableCell>
+                  <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.unseen}</TableCell>
+                  <TableCell className="num hidden text-right sm:table-cell">{a.answers ? `${Math.round((a.correctAnswers / a.answers) * 100)} %` : <span className="text-muted-foreground">–</span>}</TableCell>
+                  <TableCell><Button size="sm" variant="ghost" asChild><a href={`#/procvicovani/${a.key}`} onClick={(e) => e.stopPropagation()}>Procvičit</a></Button></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -58,21 +96,20 @@ function Menu() {
 function Session({ mode }: { mode: string }) {
   const { bank, stats, areaName, refresh } = useData();
   const isReview = mode === 'chyby';
-  const title = isReview ? 'Chybovník' : mode === 'nove' ? 'Neviděné otázky' : mode === 'vse' ? 'Mix ze všech okruhů' : areaName(mode);
+  const title = isReview ? 'Chybovník' : mode === 'nove' ? 'Neviděné otázky' : mode === 'vse' ? 'Mix všech okruhů' : areaName(mode);
 
-  // Sada otázek se vybere jednou při startu kola
-  const [questions, setQuestions] = useState<Question[]>(() => pick());
-  function pick() {
+  const pick = () => {
     if (isReview) return pickWrong(bank.questions, stats, SESSION);
     if (mode === 'nove') return shuffle(bank.questions.filter((q) => statusOf(stats.get(q.id)) === 'unseen')).slice(0, SESSION);
     if (mode === 'vse') return pickPractice(bank.questions, stats, SESSION);
     return pickPractice(bank.questions.filter((q) => q.area === mode), stats, SESSION);
-  }
-
+  };
+  // Sada otázek se vybere jednou na začátku kola
+  const [questions, setQuestions] = useState<Question[]>(pick);
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [results, setResults] = useState<boolean[]>([]);
-  // řada správných odpovědí po této odpovědi (stats se z serveru obnovují asynchronně)
+  // řada správných odpovědí po této odpovědi (statistiky se ze serveru obnovují asynchronně)
   const [streakAfter, setStreakAfter] = useState(0);
   const shownAt = useRef(Date.now());
   const q = questions[idx];
@@ -80,11 +117,11 @@ function Session({ mode }: { mode: string }) {
 
   const answer = (answerId: number) => {
     if (selected != null || !q) return;
+    const ok = answerId === q.correct;
     setSelected(answerId);
-    setStreakAfter(answerId === q.correct ? (stats.get(q.id)?.streak ?? 0) + 1 : 0);
-    setResults((r) => [...r, answerId === q.correct]);
-    api.answer({ question_id: q.id, chosen_answer_id: answerId, time_ms: Date.now() - shownAt.current, mode: isReview ? 'review' : 'practice' })
-      .then(refresh);
+    setStreakAfter(ok ? (stats.get(q.id)?.streak ?? 0) + 1 : 0);
+    setResults((r) => [...r, ok]);
+    api.answer({ question_id: q.id, chosen_answer_id: answerId, time_ms: Date.now() - shownAt.current, mode: isReview ? 'review' : 'practice' }).then(refresh);
   };
   const next = () => {
     if (selected == null) return;
@@ -102,79 +139,120 @@ function Session({ mode }: { mode: string }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || !q) return;
-      const k = e.key.toLowerCase();
-      const li = ['a', 'b', 'c', 'd'].indexOf(k);
+      if (e.metaKey || e.ctrlKey || e.altKey || !q || (e.target instanceof Element && e.target.closest('input, textarea, [role=dialog]'))) return;
+      const li = ['a', 'b', 'c', 'd'].indexOf(e.key.toLowerCase());
       if (li >= 0 && q.answers[li]) answer(q.answers[li].id);
-      else if (k === 'enter' || k === 'arrowright') next();
+      else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement))) next();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  const back = <a href="#/procvicovani" className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeftIcon className="size-4" />Procvičování</a>;
+  const ok = results.filter(Boolean).length;
+
   if (!questions.length) {
     return (
       <>
-        <div className="page-head"><h1>{title}</h1></div>
-        <div className="card center-msg">
-          {isReview ? 'Chybovník je prázdný. Paráda! 🎉' : 'Tady už nic nezbývá.'}
-          <div><a className="btn" href="#/procvicovani">Zpět na procvičování</a></div>
-        </div>
+        <PageHeader back={back} title={title} />
+        <Empty className="border border-dashed bg-card">
+          <EmptyHeader>
+            <EmptyTitle>{isReview ? 'Chybovník je prázdný' : 'Tady už nic nezbývá'}</EmptyTitle>
+            <EmptyDescription>{isReview ? 'Všechny chyby máš opravené. Zkus cvičnou zkoušku nebo nové otázky.' : 'Všechny otázky z tohoto výběru už jsi viděl.'}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="flex-row justify-center">
+            <Button variant="outline" asChild><a href="#/procvicovani/nove">Nové otázky</a></Button>
+            <Button asChild><a href="#/zkouska">Cvičná zkouška</a></Button>
+          </EmptyContent>
+        </Empty>
       </>
     );
   }
 
   if (done) {
-    const ok = results.filter(Boolean).length;
+    const pct = Math.round((ok / results.length) * 100);
+    const missed = results.length - ok;
     return (
       <>
-        <div className="page-head"><h1>{title}</h1></div>
-        <div className="card center-msg">
-          <div className="big-result">{ok} / {results.length}</div>
-          <p>správně v tomhle kole</p>
-          <div className="head-actions">
-            <button className="btn primary" onClick={restart}>Další kolo</button>
-            <a className="btn" href="#/procvicovani">Zpět na procvičování</a>
-          </div>
-        </div>
+        <PageHeader back={back} title={title} />
+        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
+          <Card className="mx-auto w-full max-w-xl items-center py-10 text-center">
+            <CardContent className="flex flex-col items-center gap-2">
+              <span className="text-sm text-muted-foreground">Kolo dokončeno</span>
+              <span className="num text-5xl font-medium tracking-tight">{ok} <span className="text-2xl text-muted-foreground">/ {results.length}</span></span>
+              <span className="num text-sm text-muted-foreground">{pct} % správně{missed > 0 && ` · ${missed} ${missed === 1 ? 'chyba je' : missed < 5 ? 'chyby jsou' : 'chyb je'} v chybovníku`}</span>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <Button variant="outline" asChild><a href="#/procvicovani">Zpět na výběr</a></Button>
+                <Button onClick={restart}>Další kolo<ArrowRightIcon data-icon="inline-end" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </>
     );
   }
 
-  const s = stats.get(q.id);
   const isCorrect = selected === q.correct;
+  const s = stats.get(q.id);
   return (
-    <>
-      <div className="page-head">
-        <h1>{title}</h1>
-        <div className="session-progress">
-          {questions.map((_, i) => (
-            <span key={i} className={i < results.length ? (results[i] ? 'pip good-bg' : 'pip bad-bg') : i === idx ? 'pip current' : 'pip'} />
-          ))}
-        </div>
-      </div>
-      <div className="card">
-        <div className="muted q-counter">
-          Otázka {idx + 1} z {questions.length}
-          {s && s.seen > 0 && <> · dosud {s.correct}× správně, {s.wrong}× špatně</>}
-        </div>
-        <QuestionView question={q} selected={selected} onSelect={answer} reveal={selected != null} />
-        {selected != null && (
-          <div className={`feedback ${isCorrect ? 'good' : 'bad'}`}>
-            <b>{isCorrect ? 'Správně!' : 'Špatně.'}</b>{' '}
-            {isReview && isCorrect && (streakAfter >= MASTER_STREAK
-              ? 'Otázka vypadla z chybovníku.'
-              : `Ještě ${MASTER_STREAK - streakAfter}× správně a vypadne z chybovníku.`)}
-            {!isCorrect && (isReview ? 'Zůstává v chybovníku, řada správných odpovědí začíná znovu.' : 'Otázka se přidala do chybovníku.')}
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+      <PageHeader
+        back={back}
+        title={title}
+        actions={
+          <div className="flex items-center gap-3 text-sm" aria-label="Skóre kola">
+            <span className="num flex items-center gap-1 text-positive"><CheckIcon className="size-4" />{ok}</span>
+            <span className="num flex items-center gap-1 text-negative"><XIcon className="size-4" />{results.length - ok}</span>
           </div>
-        )}
-        <div className="q-actions">
-          <span className="muted">Klávesy: A / B / C, Enter = další</span>
-          <button className="btn primary" disabled={selected == null} onClick={next}>
-            {idx === questions.length - 1 ? 'Dokončit kolo' : 'Další →'}
-          </button>
-        </div>
+        }
+      />
+      <div className="flex items-center gap-3">
+        <Progress value={(results.length / questions.length) * 100} className="h-1.5" aria-label="Postup v kole" />
+        <span className="num shrink-0 text-sm text-muted-foreground">{idx + 1} / {questions.length}</span>
       </div>
-    </>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={q.id}
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -24 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          <Card>
+            <CardContent className="flex flex-col gap-5">
+              {s && s.seen > 0 && selected == null && (
+                <span className="num text-xs text-muted-foreground">Dosud {s.correct}× správně, {s.wrong}× špatně</span>
+              )}
+              <QuestionView question={q} selected={selected} onSelect={answer} reveal={selected != null} />
+              <AnimatePresence>
+                {selected != null && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={cn('flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm', isCorrect ? 'bg-positive-soft text-positive-ink' : 'bg-negative-soft text-negative-ink')}
+                  >
+                    <span>
+                      <b className="font-medium">{isCorrect ? 'Správně.' : 'Špatně.'}</b>{' '}
+                      {isCorrect
+                        ? isReview ? (streakAfter >= MASTER_STREAK ? 'Otázka vypadla z chybovníku.' : `Ještě ${MASTER_STREAK - streakAfter}× a vypadne z chybovníku.`) : ''
+                        : isReview ? 'Řada správných odpovědí začíná znovu.' : 'Otázka šla do chybovníku.'}
+                    </span>
+                    <Button size="sm" onClick={next} autoFocus>
+                      {idx === questions.length - 1 ? 'Dokončit kolo' : 'Další otázka'}
+                      <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground md:inline-flex">Enter</Kbd>
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </AnimatePresence>
+      <p className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
+        <Kbd>A</Kbd><Kbd>B</Kbd><Kbd>C</Kbd> výběr odpovědi · <Kbd>Enter</Kbd> další otázka
+      </p>
+    </div>
   );
 }

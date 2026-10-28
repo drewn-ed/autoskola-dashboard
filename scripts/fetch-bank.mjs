@@ -25,10 +25,10 @@ const AREAS = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const exists = (p) => access(p).then(() => true, () => false);
 
-async function get(url, as = 'text', tries = 4) {
+async function get(url, as = 'text', tries = 4, timeoutMs = 120_000) {
   for (let i = 0; ; i++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
       if (!res.ok) throw new Error(`${res.status} ${url}`);
       return as === 'json' ? await res.json() : as === 'buffer' ? Buffer.from(await res.arrayBuffer()) : await res.text();
     } catch (e) {
@@ -126,7 +126,8 @@ async function main() {
     const file = path.join(MEDIA_DIR, m.file);
     if (await exists(file)) return;
     // zápis přes dočasný soubor, ať po přerušení nezůstane rozbitý soubor
-    await writeFile(file + '.part', await get(BASE + m.src, 'buffer'));
+    // ministerský server posílá videa pomalu (desítky kB/s), proto delší limit
+    await writeFile(file + '.part', await get(BASE + m.src, 'buffer', 4, 30 * 60_000));
     await rename(file + '.part', file);
   });
   console.log('Hotovo.');

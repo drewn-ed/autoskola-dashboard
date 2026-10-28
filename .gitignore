@@ -3,3 +3,4 @@ dist
 data/raw
 data/progress.db*
 public/media
+.taste-skill/inspect*

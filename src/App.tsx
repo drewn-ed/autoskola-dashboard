@@ -1,127 +1,86 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, type AnswerRow, type Bank, type Question } from './api';
-import { questionStats, type QStat } from './stats';
-import Overview from './pages/Overview';
-import Exam from './pages/Exam';
-import Practice from './pages/Practice';
-import WrongBook from './pages/WrongBook';
-import Catalog from './pages/Catalog';
-import History from './pages/History';
-import TestDetailPage from './pages/TestDetail';
-import Import from './pages/Import';
+import { motion } from 'motion/react';
+import { ThemeProvider } from 'next-themes';
+import { AppSidebar, ProductMark } from '@/components/app-sidebar';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { DataProvider, useRoute } from '@/lib/data';
+import Overview from '@/pages/Overview';
+import Exam from '@/pages/Exam';
+import Practice from '@/pages/Practice';
+import WrongBook from '@/pages/WrongBook';
+import Catalog from '@/pages/Catalog';
+import History from '@/pages/History';
+import TestDetailPage from '@/pages/TestDetail';
+import Import from '@/pages/Import';
 
-type Data = {
-  bank: Bank;
-  byId: Map<number, Question>;
-  areaName: (key: string) => string;
-  stats: Map<number, QStat>;
-  /** znovu načte odpovědi ze serveru (po procvičování / testu / importu) */
-  refresh: () => Promise<void>;
+const TITLES: Record<string, string> = {
+  '': 'Přehled',
+  procvicovani: 'Procvičování',
+  chybovnik: 'Chybovník',
+  zkouska: 'Cvičná zkouška',
+  otazky: 'Otázky',
+  historie: 'Historie testů',
+  import: 'Import z eTestů',
 };
 
-const DataContext = createContext<Data | null>(null);
-export const useData = () => useContext(DataContext)!;
-
-// Jednoduchý hash router: #/cesta/parametr
-function useRoute() {
-  const [hash, setHash] = useState(() => location.hash.slice(1) || '/');
-  useEffect(() => {
-    const on = () => {
-      setHash(location.hash.slice(1) || '/');
-      window.scrollTo(0, 0);
-    };
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
-  }, []);
-  return hash.split('?')[0].split('/').filter(Boolean);
+function Page({ page, param }: { page: string; param?: string }) {
+  switch (page) {
+    case '': return <Overview />;
+    case 'zkouska': return <Exam />;
+    case 'procvicovani': return <Practice mode={param} key={param ?? 'menu'} />;
+    case 'chybovnik': return <WrongBook />;
+    case 'otazky': return <Catalog />;
+    case 'historie': return param ? <TestDetailPage id={Number(param)} key={param} /> : <History />;
+    case 'import': return <Import failed={param === 'chyba'} />;
+    default: return <p className="text-muted-foreground">Stránka nenalezena.</p>;
+  }
 }
 
-export const go = (path: string) => {
-  location.hash = path;
-};
-
-const NAV = [
-  { path: '', label: 'Přehled' },
-  { path: 'zkouska', label: 'Cvičná zkouška' },
-  { path: 'procvicovani', label: 'Procvičování' },
-  { path: 'chybovnik', label: 'Chybovník' },
-  { path: 'otazky', label: 'Otázky' },
-  { path: 'historie', label: 'Historie' },
-  { path: 'import', label: 'Import' },
-];
+function Loading({ error }: { error: string | null }) {
+  if (error) return <div className="grid min-h-svh place-items-center p-6 text-sm text-muted-foreground">Nepodařilo se načíst data: {error}. Běží server?</div>;
+  return (
+    <div className="flex min-h-svh gap-6 bg-background p-6">
+      <Skeleton className="hidden h-[calc(100svh-3rem)] w-60 md:block" />
+      <div className="flex flex-1 flex-col gap-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
-  const [bank, setBank] = useState<Bank | null>(null);
-  const [answers, setAnswers] = useState<AnswerRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const route = useRoute();
-
-  const refresh = useCallback(async () => setAnswers(await api.answers()), []);
-
-  useEffect(() => {
-    Promise.all([api.bank(), api.answers()])
-      .then(([b, a]) => {
-        setBank(b);
-        setAnswers(a);
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-
-  // Data se mohla změnit jinde (import ze záložky v jiné kartě), proto je obnovíme
-  // při přechodu na jinou stránku a při návratu do okna
-  const page = route[0];
-  useEffect(() => {
-    if (bank) refresh();
-  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const onVisible = () => document.visibilityState === 'visible' && refresh();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [refresh]);
-
-  const data = useMemo<Data | null>(() => {
-    if (!bank) return null;
-    const names = new Map(bank.areas.map((a) => [a.key, a.name]));
-    return {
-      bank,
-      byId: new Map(bank.questions.map((q) => [q.id, q])),
-      areaName: (k) => names.get(k) ?? k,
-      stats: questionStats(answers),
-      refresh,
-    };
-  }, [bank, answers, refresh]);
-
-  if (error) return <div className="center-msg">Nepodařilo se načíst data: {error}</div>;
-  if (!data) return <div className="center-msg">Načítám otázky…</div>;
-
-  const param = route[1];
-  let content;
-  switch (page) {
-    case undefined: content = <Overview />; break;
-    case 'zkouska': content = <Exam />; break;
-    case 'procvicovani': content = <Practice mode={param} key={param ?? 'menu'} />; break;
-    case 'chybovnik': content = <WrongBook />; break;
-    case 'otazky': content = <Catalog />; break;
-    case 'historie': content = param ? <TestDetailPage id={Number(param)} key={param} /> : <History />; break;
-    case 'import': content = <Import failed={param === 'chyba'} />; break;
-    default: content = <div className="center-msg">Stránka nenalezena</div>;
-  }
-
+  const [page = '', param] = useRoute();
   return (
-    <DataContext.Provider value={data}>
-      <header className="topbar">
-        <a className="brand" href="#/">
-          <span className="brand-mark" aria-hidden>B</span> Autoškola
-        </a>
-        <nav>
-          {NAV.map((n) => (
-            <a key={n.path} href={`#/${n.path}`} className={(page ?? '') === n.path ? 'active' : ''}>
-              {n.label}
-            </a>
-          ))}
-        </nav>
-      </header>
-      <main className="container">{content}</main>
-    </DataContext.Provider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <TooltipProvider delayDuration={300}>
+        <DataProvider fallback={(e) => <Loading error={e} />}>
+          <SidebarProvider>
+            <AppSidebar page={page} />
+            <SidebarInset id="main" className="min-w-0 bg-background">
+              {/* Na telefonu se postranní panel skládá do horní lišty */}
+              <header className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b bg-background px-4 md:hidden">
+                <SidebarTrigger aria-label="Otevřít menu" />
+                <ProductMark className="size-6" />
+                <span className="truncate text-sm font-medium">{TITLES[page] ?? 'Autoškola'}</span>
+              </header>
+              <motion.main
+                key={`${page}/${param ?? ''}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-4 py-6 md:px-8 md:py-8"
+              >
+                <Page page={page} param={param} />
+              </motion.main>
+            </SidebarInset>
+          </SidebarProvider>
+        </DataProvider>
+        <Toaster position="bottom-right" />
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }

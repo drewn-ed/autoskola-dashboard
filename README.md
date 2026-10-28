@@ -3,6 +3,13 @@
 Lokální webová aplikace na učení testů z autoškoly (skupina B). Obsahuje všech 1 080 oficiálních otázek
 z [etesty.md.gov.cz](https://etesty.md.gov.cz) a ukládá tvoje výsledky, takže víš, co umíš a co ne.
 
+## Vzhled a technologie
+
+React + TypeScript (Vite), Tailwind CSS v4, komponenty [shadcn/ui](https://ui.shadcn.com) (Radix), grafy Recharts,
+animace Motion, ikony Lucide. Styl rozhraní je „achromatic ledger“ podle skillu taste-skill: rozhraní bez barvy,
+jediný barevný odstín (modrá dopravních značek) patří datům. Funguje světlý i tmavý režim. Globální hledání otevřeš
+klávesami `⌘K`.
+
 ## Funkce
 
 - **Přehled**: odhad skóre u zkoušky, pokrytí otázek, vývoj skóre a úspěšnost po okruzích

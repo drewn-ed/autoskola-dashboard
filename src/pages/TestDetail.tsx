@@ -1,120 +1,176 @@
 import { useEffect, useState } from 'react';
-import { api, type TestDetail } from '../api';
-import { go, useData } from '../App';
-import QuestionView from '../components/QuestionView';
-import SnapshotView from '../components/SnapshotView';
-import { formatDate, formatDuration, PASS_SCORE } from '../stats';
-import { SOURCE_LABEL } from './History';
+import { ArrowLeftIcon, CheckIcon, ClipboardCheckIcon, RotateCcwIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { toast } from 'sonner';
+import { PageHeader } from '@/components/page-header';
+import { QuestionSheet } from '@/components/question-sheet';
+import { SnapshotView } from '@/components/question-view';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { api, type Snapshot, type TestDetail, type TestItem } from '@/lib/api';
+import { go, useData } from '@/lib/data';
+import { formatDate, formatDuration, PASS_SCORE } from '@/lib/stats';
+import { cn } from '@/lib/utils';
+import { ResultBadge, SOURCE_LABEL } from './History';
 
 export default function TestDetailPage({ id }: { id: number }) {
-  const { byId, bank, refresh } = useData();
+  const { byId, areaName, refresh } = useData();
   const [test, setTest] = useState<TestDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [onlyWrong, setOnlyWrong] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'wrong'>('all');
+  const [open, setOpen] = useState<TestItem | null>(null);
+
   useEffect(() => {
     api.test(id).then(setTest, (e) => setError(e.message));
   }, [id]);
 
-  if (error) return <div className="center-msg">{error}</div>;
-  if (!test) return <div className="center-msg">Načítám…</div>;
+  if (error) return <p className="text-sm text-muted-foreground">{error}</p>;
+  if (!test) return <div className="flex flex-col gap-4"><Skeleton className="h-10 w-80" /><Skeleton className="h-24 w-full" /><Skeleton className="h-96 w-full" /></div>;
 
   const ok = test.score >= (test.pass_score ?? PASS_SCORE);
   const wrongCount = test.items.filter((i) => !i.is_correct).length;
+  const items = filter === 'wrong' ? test.items.filter((i) => !i.is_correct) : test.items;
 
-  // Úspěšnost po okruzích (jen u otázek z ministerské sady)
+  // Úspěšnost po okruzích
   const byArea = new Map<string, { ok: number; total: number }>();
   for (const it of test.items) {
     const q = it.question_id != null ? byId.get(it.question_id) : null;
-    const key = q?.area ?? it.snapshot?.category ?? 'Ostatní';
+    const key = q ? areaName(q.area) : it.snapshot?.category || 'Otázky autoškoly';
     const a = byArea.get(key) ?? { ok: 0, total: 0 };
     a.total++;
     if (it.is_correct) a.ok++;
     byArea.set(key, a);
   }
-  const areaLabel = (k: string) => bank.areas.find((a) => a.key === k)?.name ?? k;
 
   const remove = async () => {
-    if (!confirm('Smazat tento test z historie? Smažou se i jeho odpovědi ze statistik.')) return;
     await api.deleteTest(test.id);
     await refresh();
+    toast.success('Test smazán z historie');
     go('/historie');
   };
 
-  const items = onlyWrong ? test.items.filter((i) => !i.is_correct) : test.items;
+  const openQ = open?.question_id != null ? byId.get(open.question_id) ?? null : null;
+  const openSnap: Snapshot | null = open && !openQ ? open.snapshot : null;
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <a href="#/historie" className="muted">← Historie</a>
-          <h1>{test.title}</h1>
-          <div className="muted">{formatDate(test.started_at)} · <span className={`badge src-${test.source}`}>{SOURCE_LABEL[test.source]}</span></div>
-        </div>
-        <div className="head-actions">
-          {test.source === 'dashboard' && <a className="btn primary" href="#/zkouska">Nová zkouška</a>}
-          {wrongCount > 0 && <a className="btn" href="#/procvicovani/chyby">Procvičit chyby</a>}
-        </div>
-      </div>
+      <PageHeader
+        back={<a href="#/historie" className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeftIcon className="size-4" />Historie testů</a>}
+        title={test.title}
+        description={<>{formatDate(test.started_at)} · {SOURCE_LABEL[test.source]}</>}
+        actions={
+          <>
+            {wrongCount > 0 && <Button variant="outline" asChild><a href="#/procvicovani/chyby"><RotateCcwIcon data-icon="inline-start" />Opakovat chyby</a></Button>}
+            <Button asChild><a href="#/zkouska"><ClipboardCheckIcon data-icon="inline-start" />Nová zkouška</a></Button>
+          </>
+        }
+      />
 
-      <section className="kpis">
-        <div className="card kpi">
-          <div className="kpi-label">Výsledek</div>
-          <div className={`kpi-value ${ok ? 'good' : 'bad'}`}>{ok ? 'SPLNĚNO' : 'NESPLNĚNO'}</div>
-          <div className="kpi-sub">potřeba alespoň {test.pass_score ?? PASS_SCORE} bodů</div>
-        </div>
-        <div className="card kpi">
-          <div className="kpi-label">Body</div>
-          <div className="kpi-value">{test.score}<span className="kpi-unit"> / {test.max_score}</span></div>
-        </div>
-        <div className="card kpi">
-          <div className="kpi-label">Správně</div>
-          <div className="kpi-value">{test.correct_count}<span className="kpi-unit"> / {test.total}</span></div>
-          <div className="kpi-sub bad">{wrongCount} chyb</div>
-        </div>
-        <div className="card kpi">
-          <div className="kpi-label">Čas</div>
-          <div className="kpi-value">{formatDuration(test.duration_s)}</div>
-        </div>
-      </section>
+      <Card className="py-0">
+        <CardContent className="grid grid-cols-2 divide-border px-0 md:grid-cols-4 md:divide-x">
+          <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Výsledek</span><span className="pt-1"><ResultBadge ok={ok} /></span><span className="text-xs text-muted-foreground">potřeba {test.pass_score ?? PASS_SCORE} bodů</span></div>
+          <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Body</span><span className="num text-3xl font-medium">{test.score}<span className="text-base font-normal text-muted-foreground"> / {test.max_score}</span></span></div>
+          <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Správně</span><span className="num text-3xl">{test.correct_count}<span className="text-base text-muted-foreground"> / {test.total}</span></span></div>
+          <div className="flex flex-col gap-1 p-5"><span className="text-sm text-muted-foreground">Čas</span><span className="num text-3xl">{formatDuration(test.duration_s).replace(' min', '')}<span className="text-base text-muted-foreground"> min</span></span></div>
+        </CardContent>
+      </Card>
 
-      <div className="card">
-        <h3>Podle okruhů</h3>
-        <div className="area-list">
-          {[...byArea].map(([k, a]) => (
-            <div className="area-row static" key={k}>
-              <div className="area-name"><span>{areaLabel(k)}</span><span className="muted">{a.ok} / {a.total}</span></div>
-              <div className="stack">
-                <div className="s-known" style={{ width: `${(a.ok / a.total) * 100}%` }} />
-                <div className="s-wrong" style={{ width: `${((a.total - a.ok) / a.total) * 100}%` }} />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <Card className="lg:sticky lg:top-6 lg:col-span-4 lg:self-start">
+          <CardHeader><CardTitle>Podle okruhů</CardTitle></CardHeader>
+          <CardContent className="flex flex-col gap-3.5">
+            {[...byArea].map(([name, a]) => (
+              <div key={name} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="truncate">{name}</span>
+                  <span className={cn('num', a.ok < a.total ? 'text-foreground' : 'text-muted-foreground')}>{a.ok} / {a.total}</span>
+                </div>
+                <div className="flex h-1.5 overflow-hidden rounded-full bg-negative/25">
+                  <div className="bg-sign" style={{ width: `${(a.ok / a.total) * 100}%` }} />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="gap-2 lg:col-span-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Otázky</CardTitle>
+            <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'wrong')}>
+              <TabsList>
+                <TabsTrigger value="all">Všechny <span className="num text-muted-foreground">{test.items.length}</span></TabsTrigger>
+                <TabsTrigger value="wrong">Chyby <span className="num text-muted-foreground">{wrongCount}</span></TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+          <CardContent className="flex flex-col">
+            {items.map((it) => {
+              const q = it.question_id != null ? byId.get(it.question_id) : null;
+              const text = q?.text ?? it.snapshot?.text ?? '';
+              const chosen = q ? q.answers.find((a) => a.id === it.chosen_answer_id)?.text : it.snapshot?.answers.find((a) => a.chosen)?.text;
+              const correct = q ? q.answers.find((a) => a.id === q.correct)?.text : it.snapshot?.answers.find((a) => a.correct)?.text;
+              return (
+                <button
+                  key={it.pos}
+                  type="button"
+                  onClick={() => setOpen(it)}
+                  className="-mx-2 flex items-start gap-3 rounded-md border-b border-rule px-2 py-3 text-left transition-colors outline-none last:border-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="num w-6 shrink-0 pt-0.5 text-right text-sm text-muted-foreground">{it.pos}.</span>
+                  <span className={cn('mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-white', it.is_correct ? 'bg-positive' : 'bg-negative')}>
+                    {it.is_correct ? <CheckIcon className="size-3" /> : <XIcon className="size-3" />}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="text-sm text-foreground">{text}</span>
+                    {!it.is_correct && (
+                      <span className="flex flex-col gap-0.5 text-[13px]">
+                        <span className="text-negative-ink dark:text-negative">Tvoje: {chosen ?? 'bez odpovědi'}</span>
+                        <span className="text-muted-foreground">Správně: {correct}</span>
+                      </span>
+                    )}
+                  </span>
+                  {it.time_ms != null && <span className="num shrink-0 text-xs text-muted-foreground">{Math.round(it.time_ms / 1000)} s</span>}
+                </button>
+              );
+            })}
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="filters">
-        <h3 className="section-title flush">Otázky</h3>
-        <div className="segmented">
-          <button className={!onlyWrong ? 'on' : ''} onClick={() => setOnlyWrong(false)}>Všechny ({test.items.length})</button>
-          <button className={onlyWrong ? 'on' : ''} onClick={() => setOnlyWrong(true)}>Jen chyby ({wrongCount})</button>
-        </div>
+      <div className="flex justify-center">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" className="text-muted-foreground"><Trash2Icon data-icon="inline-start" />Smazat test z historie</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Smazat tento test?</AlertDialogTitle>
+              <AlertDialogDescription>Odpovědi z testu se odeberou i ze statistik a chybovníku. Nejde to vrátit.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Ponechat</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={remove}>Smazat test</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
-      <div className="qlist">
-        {items.map((it) => {
-          const q = it.question_id != null ? byId.get(it.question_id) : null;
-          return (
-            <div key={it.pos} className={`card result-item ${it.is_correct ? 'ok' : 'ko'}`}>
-              <div className="result-head">
-                <span className="result-pos">{it.pos}.</span>
-                <span className={it.is_correct ? 'good' : 'bad'}>{it.is_correct ? '✓ správně' : it.chosen_answer_id == null && q ? '✗ bez odpovědi' : '✗ špatně'}</span>
-                {it.time_ms != null && <span className="muted">{Math.round(it.time_ms / 1000)} s</span>}
-              </div>
-              {q ? <QuestionView question={q} selected={it.chosen_answer_id} reveal /> : it.snapshot && <SnapshotView snapshot={it.snapshot} />}
-            </div>
-          );
-        })}
-      </div>
-      <div className="center"><button className="btn danger-link" onClick={remove}>Smazat test z historie</button></div>
+
+      <QuestionSheet question={openQ} selected={open?.chosen_answer_id} onOpenChange={(o) => !o && setOpen(null)} />
+      <Sheet open={!!openSnap} onOpenChange={(o) => !o && setOpen(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>Otázka autoškoly</SheetTitle>
+            <SheetDescription>Není v ministerské sadě, proto ji nejde procvičovat.</SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-6">{openSnap && <SnapshotView snapshot={openSnap} />}</div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
