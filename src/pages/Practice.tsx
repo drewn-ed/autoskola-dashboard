@@ -36,7 +36,7 @@ function Menu() {
   const modes = [
     { href: '#/procvicovani/chyby', icon: RotateCcwIcon, title: 'Chybovník', value: counts.wrong, sub: 'otázek ke zopakování', tone: counts.wrong ? 'text-negative' : 'text-muted-foreground' },
     { href: '#/procvicovani/nove', icon: SparklesIcon, title: 'Neviděné otázky', value: counts.unseen, sub: 'ještě jsi je neviděl', tone: 'text-foreground' },
-    { href: '#/procvicovani/vse', icon: ShuffleIcon, title: 'Mix všech okruhů', value: bank.questions.length, sub: 'nejdřív chyby, pak nové', tone: 'text-foreground' },
+    { href: '#/procvicovani/vse', icon: ShuffleIcon, title: 'Mix všech okruhů', value: bank.questions.length, sub: 'náhodně, občas se vrátí chyba', tone: 'text-foreground' },
   ];
   return (
     <>
@@ -63,7 +63,7 @@ function Menu() {
       <Card className="gap-2">
         <CardHeader>
           <CardTitle>Podle okruhu</CardTitle>
-          <CardDescription>Nejdřív přijdou na řadu tvoje chyby z okruhu, pak neviděné otázky.</CardDescription>
+          <CardDescription>Hlavně nové otázky z okruhu, mezi ně se náhodně vmíchá pár tvých chyb (nejvýš 4 z 20).</CardDescription>
         </CardHeader>
         <CardContent className="px-2 sm:px-4">
           <Table>

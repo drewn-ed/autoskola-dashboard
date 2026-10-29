@@ -1,4 +1,5 @@
-import { motion } from 'motion/react';
+import { useRef } from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { ThemeProvider } from 'next-themes';
 import { AppSidebar, ProductMark } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -53,9 +54,26 @@ function Loading({ error }: { error: string | null }) {
   );
 }
 
+// Pořadí stránek v menu: obsah přijede ze směru, kterým se v menu posouváš
+const ORDER = ['', 'procvicovani', 'chybovnik', 'zkouska', 'otazky', 'historie', 'import'];
+
+function useGlideDirection(page: string, param?: string) {
+  const prev = useRef({ key: '', index: 0, dir: 0 });
+  const key = `${page}/${param ?? ''}`;
+  if (prev.current.key !== key) {
+    const index = ORDER.indexOf(page);
+    // detail (např. konkrétní test) se otevírá "dovnitř", tedy zespodu
+    const dir = page === ORDER[prev.current.index] && param ? 1 : Math.sign(index - prev.current.index);
+    prev.current = { key, index, dir };
+  }
+  return prev.current.dir;
+}
+
 export default function App() {
   const [page = '', param] = useRoute();
+  const dir = useGlideDirection(page, param);
   return (
+    <MotionConfig reducedMotion="user">
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <TooltipProvider delayDuration={300}>
         <DataProvider fallback={(e) => <Loading error={e} />}>
@@ -70,9 +88,9 @@ export default function App() {
               </header>
               <motion.main
                 key={`${page}/${param ?? ''}`}
-                initial={{ opacity: 0, transform: 'translateY(6px)' }}
+                initial={{ opacity: 0, transform: `translateY(${dir * 14}px)` }}
                 animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                transition={{ duration: 0.18, ease: EASE_OUT }}
+                transition={{ duration: 0.24, ease: EASE_OUT }}
                 className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-4 py-6 md:px-8 md:py-8"
               >
                 <Page page={page} param={param} />
@@ -83,5 +101,6 @@ export default function App() {
         <Toaster position="bottom-right" />
       </TooltipProvider>
     </ThemeProvider>
+    </MotionConfig>
   );
 }

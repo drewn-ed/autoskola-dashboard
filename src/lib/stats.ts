@@ -125,10 +125,22 @@ export function generateExam(bank: Bank): Question[] {
   return bank.areas.flatMap((a) => shuffle(bank.questions.filter((q) => q.area === a.key)).slice(0, EXAM_LAYOUT[a.key] ?? 0));
 }
 
-/** Výběr otázek do procvičování: nejdřív chyby, pak neviděné, pak zbytek (vše s náhodou) */
+/** Kolik otázek z chybovníku se nejvýš vmíchá do běžného kola (20 % = 4 z 20) */
+export const MIX_WRONG_SHARE = 0.2;
+
+/**
+ * Výběr otázek do procvičování (mix nebo okruh): hlavně nové otázky, mezi ně se náhodně vmíchá
+ * pár chyb s nejvyšší prioritou. Když neviděné dojdou, doplní se náhodně už známé otázky.
+ * Celé kolo je promíchané, takže chyby nejsou na začátku. Na opakování chyb je samostatný režim.
+ */
 export function pickPractice(questions: Question[], stats: Map<number, QStat>, count: number): Question[] {
   const by = (st: Status) => shuffle(questions.filter((q) => statusOf(stats.get(q.id)) === st));
-  return [...by('wrong'), ...by('unseen'), ...by('known')].slice(0, count);
+  const wrong = pickWrong(questions, stats, questions.length);
+  const wrongSlots = Math.min(wrong.length, Math.max(1, Math.round(count * MIX_WRONG_SHARE)));
+  const picked = [...wrong.slice(0, wrongSlots), ...[...by('unseen'), ...by('known')].slice(0, count - wrongSlots)];
+  // Malý okruh, kde nové otázky došly: doplnit dalšími chybami
+  if (picked.length < count) picked.push(...wrong.slice(wrongSlots, wrongSlots + count - picked.length));
+  return shuffle(picked);
 }
 
 export function pickWrong(questions: Question[], stats: Map<number, QStat>, count: number): Question[] {

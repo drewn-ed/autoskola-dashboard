@@ -64,7 +64,15 @@ export function AppSidebar({ page }: { page: string }) {
 
   const item = (n: { path: string; label: string; icon: typeof TargetIcon; count?: boolean; running?: boolean }) => (
     <SidebarMenuItem key={n.path}>
-      <SidebarMenuButton asChild isActive={page === n.path} tooltip={n.label}>
+      {/* Zvýraznění aktivní stránky je jeden prvek, který mezi položkami "překlouže" */}
+      {page === n.path && (
+        <motion.span
+          layoutId="sidebar-active"
+          className="absolute inset-0 rounded-md bg-sidebar-accent"
+          transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+        />
+      )}
+      <SidebarMenuButton asChild isActive={page === n.path} tooltip={n.label} className="relative data-active:bg-transparent">
         <a href={`#/${n.path}`} onClick={() => setOpenMobile(false)}>
           <n.icon />
           <span>{n.label}</span>
