@@ -110,49 +110,54 @@
     --rule: #eef0f2;
 }
 
+/*
+ * Tmavý režim: stejný chladný šedomodrý nádech jako světlý, ne čistá černá (text na ní "září").
+ * Hloubku nedělá stín, ale světlost: podklad < karta < vyskakovací okno. Karty se tak od podkladu
+ * oddělí podobně jako bílé karty na šedém podkladu ve světlém režimu.
+ */
 .dark {
-    --background: #000000;
-    --foreground: #ffffff;
-    --card: #111111;
-    --card-foreground: #ffffff;
-    --popover: #161616;
-    --popover-foreground: #ffffff;
-    --primary: #ffffff;
-    --primary-foreground: #0a0a0a;
-    --secondary: #222222;
-    --secondary-foreground: #ffffff;
-    --muted: #1a1a1a;
-    --muted-foreground: #b4b4b4;
-    --accent: #222222;
-    --accent-foreground: #ffffff;
+    --background: #0c0e12;
+    --foreground: #e9ecf0;
+    --card: #1b1f26;
+    --card-foreground: #e9ecf0;
+    --popover: #222731;
+    --popover-foreground: #e9ecf0;
+    --primary: #e9ecf0;
+    --primary-foreground: #0c0e12;
+    --secondary: #2a3039;
+    --secondary-foreground: #e9ecf0;
+    --muted: #242932;
+    --muted-foreground: #9aa2ad;
+    --accent: #2a3039;
+    --accent-foreground: #e9ecf0;
     --destructive: #e5566f;
-    --border: #262626;
-    --input: #3a3a3a;
-    --ring: #5b8fe0;
-    --chart-1: #5b8fe0;
-    --chart-2: #ffffff;
-    --chart-3: #949494;
+    --border: #323843;
+    --input: #3c434f;
+    --ring: #6d9be3;
+    --chart-1: #6d9be3;
+    --chart-2: #e9ecf0;
+    --chart-3: #8b929c;
     --chart-4: #e5566f;
     --chart-5: #3fc07a;
-    --sidebar: #000000;
-    --sidebar-foreground: #b4b4b4;
-    --sidebar-primary: #ffffff;
-    --sidebar-primary-foreground: #0a0a0a;
-    --sidebar-accent: #1c1c1c;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #1f1f1f;
-    --sidebar-ring: #5b8fe0;
+    --sidebar: #0c0e12;
+    --sidebar-foreground: #a9b1bc;
+    --sidebar-primary: #e9ecf0;
+    --sidebar-primary-foreground: #0c0e12;
+    --sidebar-accent: #242a33;
+    --sidebar-accent-foreground: #e9ecf0;
+    --sidebar-border: #242931;
+    --sidebar-ring: #6d9be3;
 
-    --sign: #5b8fe0;
-    --sign-soft: #14233a;
+    --sign: #6d9be3;
+    --sign-soft: #1b2a40;
     --positive: #3fc07a;
-    --positive-soft: #172a1d;
-    --positive-ink: #3fc07a;
+    --positive-soft: #162b20;
+    --positive-ink: #5fd394;
     --negative: #e5566f;
-    --negative-soft: #2c1a20;
-    --negative-ink: #e5566f;
-    --unseen: #2a2a2a;
-    --rule: #1a1a1a;
+    --negative-soft: #301c22;
+    --negative-ink: #f0798d;
+    --unseen: #363d48;
+    --rule: #2a2f37;
 }
 
 @layer base {
