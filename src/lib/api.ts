@@ -66,7 +66,11 @@ const json = (data: unknown): RequestInit => ({
   body: JSON.stringify(data),
 });
 
+export type Profile = { name?: string; school?: string };
+
 export const api = {
+  profile: () => req<Profile>('/api/profile'),
+  saveProfile: (p: Profile) => req<{ ok: true }>('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
   bank: () => req<Bank>('/api/bank'),
   answers: () => req<AnswerRow[]>('/api/answers'),
   answer: (a: { question_id: number; chosen_answer_id: number | null; time_ms: number; mode: 'practice' | 'review' }) =>

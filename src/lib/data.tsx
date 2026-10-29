@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, type AnswerRow, type Bank, type Question, type TestSummary } from './api';
+import { api, type AnswerRow, type Bank, type Profile, type Question, type TestSummary } from './api';
 import { questionStats, statusOf, type QStat, type Status } from './stats';
 
 type Data = {
@@ -10,6 +10,8 @@ type Data = {
   status: (q: Question) => Status;
   counts: Record<Status, number>;
   tests: TestSummary[];
+  profile: Profile;
+  saveProfile: (p: Profile) => Promise<void>;
   /** znovu načte odpovědi a testy ze serveru (po procvičování / testu / importu) */
   refresh: () => Promise<void>;
 };
@@ -21,6 +23,7 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
   const [bank, setBank] = useState<Bank | null>(null);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [tests, setTests] = useState<TestSummary[]>([]);
+  const [profile, setProfile] = useState<Profile>({});
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -30,8 +33,11 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
   }, []);
 
   useEffect(() => {
-    Promise.all([api.bank(), refresh()])
-      .then(([b]) => setBank(b))
+    Promise.all([api.bank(), refresh(), api.profile()])
+      .then(([b, , p]) => {
+        setProfile(p);
+        setBank(b);
+      })
       .catch((e) => setError(e.message));
   }, [refresh]);
 
@@ -41,6 +47,11 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refresh]);
+
+  const saveProfile = useCallback(async (p: Profile) => {
+    await api.saveProfile(p);
+    setProfile(await api.profile());
+  }, []);
 
   const data = useMemo<Data | null>(() => {
     if (!bank) return null;
@@ -56,9 +67,11 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
       status: (q) => statusOf(stats.get(q.id)),
       counts,
       tests,
+      profile,
+      saveProfile,
       refresh,
     };
-  }, [bank, answers, tests, refresh]);
+  }, [bank, answers, tests, profile, saveProfile, refresh]);
 
   if (!data) return <>{fallback(error)}</>;
   return <DataContext.Provider value={data}>{children}</DataContext.Provider>;

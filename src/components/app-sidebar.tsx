@@ -11,7 +11,9 @@ import {
   TargetIcon,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useState } from 'react';
 import { useTheme } from 'next-themes';
+import { DEFAULT_SCHOOL, initials, ProfileDialog } from '@/components/profile-dialog';
 import { POP } from '@/lib/motion';
 import {
   Sidebar,
@@ -57,7 +59,8 @@ const DATA = [
 ];
 
 export function AppSidebar({ page }: { page: string }) {
-  const { counts, bank } = useData();
+  const { counts, bank, profile } = useData();
+  const [profileOpen, setProfileOpen] = useState(false);
   const { setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const examRunning = useExamRunning();
@@ -135,13 +138,19 @@ export function AppSidebar({ page }: { page: string }) {
           <ToggleGroupItem value="dark" aria-label="Tmavý" className="flex-1"><MoonIcon /></ToggleGroupItem>
           <ToggleGroupItem value="system" aria-label="Podle systému" className="flex-1"><MonitorIcon /></ToggleGroupItem>
         </ToggleGroup>
-        <div className="flex items-center gap-2.5 px-1">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-sign-soft text-xs font-medium text-sign">DČ</span>
+        <button
+          type="button"
+          onClick={() => setProfileOpen(true)}
+          title="Upravit jméno a autoškolu"
+          className="pressable -mx-1 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        >
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-sign-soft text-xs font-medium text-sign">{initials(profile.name)}</span>
           <span className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="truncate text-sm text-foreground">David Čečko</span>
-            <span className="truncate text-xs text-muted-foreground">Autoškola Lišák</span>
+            <span className="truncate text-sm text-foreground">{profile.name ?? 'Bez jména'}</span>
+            <span className="truncate text-xs text-muted-foreground">{profile.school ?? DEFAULT_SCHOOL}</span>
           </span>
-        </div>
+        </button>
+        <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       </SidebarFooter>
     </Sidebar>
   );

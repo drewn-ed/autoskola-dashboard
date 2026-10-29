@@ -5,12 +5,19 @@ import http from 'node:http';
 import { readFileSync, existsSync, mkdirSync, createReadStream, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
 import { parseEtestyHtml } from './server/etesty-parser.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 5174);
 const DEV = process.argv.includes('--dev');
+
+// Databáze běží na vestavěném node:sqlite, ten je v Node.js od verze 22.5
+const [major, minor] = process.versions.node.split('.').map(Number);
+if (major < 22 || (major === 22 && minor < 5)) {
+  console.error(`Potřebuješ Node.js 22.5 nebo novější (máš ${process.versions.node}). Stáhni ho z https://nodejs.org`);
+  process.exit(1);
+}
+const { DatabaseSync } = await import('node:sqlite');
 
 // --- Databáze otázek (jen pro čtení, z data/questions.json) ---
 const bankPath = path.join(ROOT, 'data/questions.json');
@@ -53,6 +60,10 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS answers_q ON answers(question_id, answered_at);
   CREATE INDEX IF NOT EXISTS answers_t ON answers(test_id, pos);
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
 
 const now = () => new Date().toISOString();
@@ -146,6 +157,21 @@ async function readBody(req, limit = 5_000_000) {
 
 const routes = {
   'GET /api/bank': (req, res) => send(res, 200, bank, { 'Cache-Control': 'no-cache' }),
+
+  // Profil: jméno a autoškola, na které se aplikace zeptá při prvním spuštění
+  'GET /api/profile': (req, res) => {
+    const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('name', 'school')").all();
+    send(res, 200, Object.fromEntries(rows.map((r) => [r.key, r.value])));
+  },
+  'PUT /api/profile': async (req, res) => {
+    const p = JSON.parse(await readBody(req));
+    const set = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+    for (const key of ['name', 'school']) {
+      const value = String(p[key] ?? '').trim().slice(0, 80);
+      if (value) set.run(key, value);
+    }
+    send(res, 200, { ok: true });
+  },
 
   // Všechny odpovědi na ministerské otázky (pro výpočet statistik a chybovníku na frontendu)
   'GET /api/answers': (req, res) => send(res, 200, db.prepare(
@@ -283,7 +309,12 @@ http.createServer(async (req, res) => {
   if (pathname === '/import/etesty' && req.method === 'POST') return handleBookmarklet(req, res);
   if (pathname.startsWith('/media/')) {
     const file = staticFile(PUBLIC, pathname);
-    return file ? serveFile(req, res, file) : send(res, 404, { error: 'Soubor nenalezen' });
+    if (file) return serveFile(req, res, file);
+    // Média nejsou stažená (npm run fetch-bank): načtou se přímo z webu ministerstva
+    const name = path.basename(decodeURIComponent(pathname));
+    if (!/^[\w.-]+$/.test(name)) return send(res, 404, { error: 'Soubor nenalezen' });
+    res.writeHead(302, { Location: `https://etesty.md.gov.cz/binary_content_storage/${name}` });
+    return res.end();
   }
   if (vite) return vite.middlewares(req, res);
   const file = staticFile(DIST, pathname === '/' ? '/index.html' : pathname) ?? path.join(DIST, 'index.html');
