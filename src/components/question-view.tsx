@@ -1,17 +1,43 @@
-import { CheckIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ImageOffIcon, RotateCwIcon, XIcon } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { mediaUrl, type Media, type Question, type Snapshot } from '@/lib/api';
 import { useData } from '@/lib/data';
-import { LETTERS } from '@/lib/stats';
+import { ANSWER_KEYS } from '@/lib/stats';
 import { EASE_OUT, POP } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
+/**
+ * Obrázek nebo video otázky. Když se nenačte (třeba neběžel server), prohlížeč to sám znovu nezkusí
+ * a bez popisku by zbylo jen prázdné místo, proto ukážeme chybu s tlačítkem na nové načtení.
+ */
 export function MediaView({ media, className }: { media: Media; className?: string }) {
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const label = media.type === 'video' ? 'Video' : 'Obrázek';
+
+  if (failed) {
+    return (
+      <div className="flex w-full max-w-md flex-col items-start gap-3 self-start rounded-lg border border-dashed px-4 py-3.5 text-sm text-muted-foreground">
+        <span className="flex items-center gap-2">
+          <ImageOffIcon className="size-4 shrink-0" />
+          {label} k otázce se nepodařilo načíst. Běží aplikace?
+        </span>
+        <Button size="sm" variant="outline" onClick={() => { setFailed(false); setAttempt((a) => a + 1); }}>
+          <RotateCwIcon data-icon="inline-start" />
+          Zkusit znovu
+        </Button>
+      </div>
+    );
+  }
+
+  const src = attempt ? `${mediaUrl(media)}?r=${attempt}` : mediaUrl(media);
   return media.type === 'video' ? (
-    <video className={cn('rounded-lg bg-black', className)} src={mediaUrl(media)} controls playsInline preload="metadata" />
+    <video key={attempt} className={cn('rounded-lg bg-black', className)} src={src} controls playsInline preload="metadata" onError={() => setFailed(true)} />
   ) : (
-    <img className={cn('rounded-lg', className)} src={mediaUrl(media)} alt="" loading="lazy" />
+    <img key={attempt} className={cn('rounded-lg', className)} src={src} alt={label} loading="lazy" onError={() => setFailed(true)} />
   );
 }
 
@@ -64,7 +90,7 @@ function AnswerOption({ index, state, onClick, children }: { index: number; stat
           >
             {state === 'correct' ? <CheckIcon className="size-3.5" /> : <XIcon className="size-3.5" />}
           </motion.span>
-        ) : LETTERS[index]}
+        ) : ANSWER_KEYS[index]}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-2">{children}</span>
     </Comp>
@@ -78,9 +104,11 @@ type Props = {
   /** ukázat správnou odpověď (a případně chybu) */
   reveal?: boolean;
   showMeta?: boolean;
+  /** velikost obrázku/videa otázky (v kartě se řídí výškou okna) */
+  mediaClassName?: string;
 };
 
-export function QuestionView({ question: q, selected, onSelect, reveal, showMeta = true }: Props) {
+export function QuestionView({ question: q, selected, onSelect, reveal, showMeta = true, mediaClassName = 'max-h-[380px] w-auto max-w-full self-start' }: Props) {
   const { areaName } = useData();
   return (
     <div className="flex flex-col gap-4">
@@ -93,7 +121,7 @@ export function QuestionView({ question: q, selected, onSelect, reveal, showMeta
       )}
       <h2 className="text-lg leading-snug font-medium text-pretty whitespace-pre-line text-foreground md:text-xl">{q.text}</h2>
       {q.note && <p className="text-sm text-muted-foreground">{q.note}</p>}
-      {q.media && <MediaView key={q.id} media={q.media} className="max-h-[380px] w-auto max-w-full self-start" />}
+      {q.media && <MediaView key={q.id} media={q.media} className={mediaClassName} />}
       <div className="flex flex-col gap-2" role="list">
         {q.answers.map((a, i) => {
           const isSel = selected === a.id;
@@ -125,7 +153,7 @@ export function SnapshotView({ snapshot: s }: { snapshot: Snapshot }) {
         {s.code && <span>Kód {s.code}</span>}
       </div>
       <h2 className="text-lg leading-snug font-medium text-foreground">{s.text}</h2>
-      {s.image && <img className="max-h-[320px] max-w-full self-start rounded-lg" src={s.image} alt="" loading="lazy" />}
+      {s.image && <img className="max-h-[min(320px,36dvh)] max-w-full self-start rounded-lg" src={s.image} alt="" loading="lazy" />}
       <div className="flex flex-col gap-2">
         {s.answers.map((a, i) => (
           <AnswerOption key={i} index={i} state={a.correct ? 'correct' : a.chosen ? 'wrong' : 'dim'}>

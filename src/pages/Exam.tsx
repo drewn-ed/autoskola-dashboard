@@ -14,7 +14,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api, type Question } from '@/lib/api';
 import { go, useData } from '@/lib/data';
-import { areaStats, EXAM_LAYOUT, EXAM_MINUTES, generateExam, PASS_SCORE } from '@/lib/stats';
+import { ANSWER_KEYS, areaStats, EXAM_LAYOUT, EXAM_MINUTES, generateExam, PASS_SCORE } from '@/lib/stats';
 import { examSession } from '@/lib/exam-session';
 import { EASE_MOVE, EASE_OUT, POP } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -100,14 +100,14 @@ export default function Exam() {
     if (questions && left <= 0) finish();
   }, [left, questions, finish]);
 
-  // Klávesy: A/B/C výběr, šipky pohyb, U ukončit (jako na webu ministerstva)
+  // Klávesy: 1/2/3 výběr, šipky pohyb, U ukončit
   useEffect(() => {
     if (!questions || confirmOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const q = questions[idx];
       const k = e.key.toLowerCase();
-      const li = ['a', 'b', 'c', 'd'].indexOf(k);
+      const li = ANSWER_KEYS.indexOf(k);
       if (li >= 0 && q.answers[li]) setChosen((c) => ({ ...c, [q.id]: q.answers[li].id }));
       else if (k === 'arrowright') goTo(idx + 1);
       else if (k === 'arrowleft') goTo(idx - 1);
@@ -157,7 +157,7 @@ export default function Exam() {
           </CardContent>
           <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t">
             <span className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
-              <Kbd>A</Kbd><Kbd>B</Kbd><Kbd>C</Kbd> odpověď · <Kbd>←</Kbd><Kbd>→</Kbd> otázky · <Kbd>U</Kbd> vyhodnotit
+              <Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> odpověď · <Kbd>←</Kbd><Kbd>→</Kbd> otázky · <Kbd>U</Kbd> vyhodnotit
             </span>
             <Button size="lg" onClick={start}><ClipboardCheckIcon data-icon="inline-start" />Začít zkoušku</Button>
           </CardFooter>

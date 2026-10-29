@@ -3,7 +3,7 @@ import { ChevronRightIcon, ClipboardCheckIcon, RotateCcwIcon } from 'lucide-reac
 import { ExamBar } from '@/components/exam-bar';
 import { PageHeader } from '@/components/page-header';
 import { QuestionMap } from '@/components/question-map';
-import { QuestionSheet, StreakDots } from '@/components/question-sheet';
+import { QuestionDialog, StreakDots } from '@/components/question-sheet';
 import { ScoreChart } from '@/components/score-chart';
 import { TestsTable } from '@/pages/History';
 import { Button } from '@/components/ui/button';
@@ -156,7 +156,7 @@ export default function Overview() {
           </CardContent>
         </Card>
       </div>
-      <QuestionSheet question={open} onOpenChange={(o) => !o && setOpen(null)} />
+      <QuestionDialog question={open} onOpenChange={(o) => !o && setOpen(null)} />
     </>
   );
 }

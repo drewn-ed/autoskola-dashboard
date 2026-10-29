@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Question } from '@/lib/api';
 import { useData } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { QuestionSheet } from './question-sheet';
+import { QuestionDialog } from './question-sheet';
 
 const DOT = { known: 'bg-sign', wrong: 'bg-negative', unseen: 'bg-unseen' } as const;
 
@@ -34,7 +34,7 @@ export function QuestionMap() {
           </div>
         );
       })}
-      <QuestionSheet question={open} onOpenChange={(o) => !o && setOpen(null)} />
+      <QuestionDialog question={open} onOpenChange={(o) => !o && setOpen(null)} />
     </div>
   );
 }

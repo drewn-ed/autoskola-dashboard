@@ -1,13 +1,15 @@
-import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { EyeIcon } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { QuestionView } from '@/components/question-view';
-import type { Question } from '@/lib/api';
+import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { CARD_MEDIA, QuestionCard } from '@/components/question-card';
+import { pointsLabel, QuestionView } from '@/components/question-view';
+import { api, type Question } from '@/lib/api';
 import { useData } from '@/lib/data';
-import { formatDate, MASTER_STREAK, type Status } from '@/lib/stats';
+import { ANSWER_KEYS, MASTER_STREAK, type Status } from '@/lib/stats';
 import { POP } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -34,45 +36,105 @@ export function StreakDots({ streak }: { streak: number }) {
   );
 }
 
-/** Boční panel s detailem otázky (jako detail záznamu v CRM) */
-export function QuestionSheet({ question, onOpenChange, selected }: { question: Question | null; onOpenChange: (open: boolean) => void; selected?: number | null }) {
-  const { stats, status, areaName } = useData();
+/**
+ * Karta s otázkou uprostřed obrazovky (mapa otázek, katalog, chybovník, hledání).
+ * Otázku, kterou ještě neumíš (neviděná nebo v chybovníku), nejdřív zkusíš sám a odpověď se uloží
+ * jako při procvičování. Otázka, kterou umíš, rovnou ukáže správnou odpověď.
+ */
+export function QuestionDialog({ question, onOpenChange }: { question: Question | null; onOpenChange: (open: boolean) => void }) {
+  const { stats, status, areaName, refresh } = useData();
+  // Stav se zakládá při otevření otázky, aby se po uložení odpovědi (a změně statusu) nepřepnul režim
+  const [ask, setAsk] = useState<{ id: number; asking: boolean; review: boolean; selected: number | null; shownAt: number; streakAfter: number } | null>(null);
+  if (question && ask?.id !== question.id) {
+    const st = status(question);
+    setAsk({ id: question.id, asking: st !== 'known', review: st === 'wrong', selected: null, shownAt: Date.now(), streakAfter: 0 });
+  }
+  const cur = question && ask?.id === question.id ? ask : null;
   const s = question ? stats.get(question.id) : undefined;
+  const waiting = !!cur?.asking && cur.selected == null;
+
+  const answer = (answerId: number) => {
+    if (!question || !cur || !waiting) return;
+    const ok = answerId === question.correct;
+    setAsk({ ...cur, selected: answerId, streakAfter: ok ? (s?.streak ?? 0) + 1 : 0 });
+    api.answer({ question_id: question.id, chosen_answer_id: answerId, time_ms: Date.now() - cur.shownAt, mode: cur.review ? 'review' : 'practice' })
+      .then(refresh, () => toast.error('Odpověď se nepodařilo uložit. Běží aplikace?'));
+  };
+
+  useEffect(() => {
+    if (!waiting || !question) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const li = ANSWER_KEYS.indexOf(e.key);
+      if (li >= 0 && question.answers[li]) answer(question.answers[li].id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const isCorrect = !!question && cur?.selected === question.correct;
+  const title = !cur?.asking ? 'Správná odpověď' : waiting ? 'Vyber odpověď' : isCorrect ? 'Správně' : 'Špatně';
+
   return (
-    <Sheet open={!!question} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full gap-0 sm:max-w-xl">
-        {question && (
-          <>
-            <SheetHeader className="border-b">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={status(question)} />
-                <span className="text-xs text-muted-foreground">{areaName(question.area)} · kód {question.code}</span>
-              </div>
-              <SheetTitle className="sr-only">{question.text}</SheetTitle>
-              <SheetDescription className="sr-only">Detail otázky se správnou odpovědí</SheetDescription>
-            </SheetHeader>
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="flex flex-col gap-6 p-4">
-                <QuestionView question={question} reveal selected={selected} showMeta={false} />
-                <Separator />
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-                  <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Odpovězeno</dt><dd className="num">{s?.seen ?? 0}×</dd></div>
-                  <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Správně</dt><dd className="num">{s?.correct ?? 0}×</dd></div>
-                  <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Špatně</dt><dd className="num">{s?.wrong ?? 0}×</dd></div>
-                  <div className="flex flex-col gap-1"><dt className="text-xs text-muted-foreground">Řada správně</dt><dd><StreakDots streak={s?.streak ?? 0} /></dd></div>
-                </dl>
-                {s?.lastAt && <p className="text-xs text-muted-foreground">Naposledy {formatDate(s.lastAt)}</p>}
-              </div>
-            </ScrollArea>
-            <SheetFooter className="border-t sm:flex-row sm:justify-end">
+    <QuestionCard
+      open={!!question}
+      onOpenChange={onOpenChange}
+      header={question && (
+        <>
+          <StatusBadge status={status(question)} />
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription className="num truncate text-xs">{areaName(question.area)} · {pointsLabel(question.points)} · kód {question.code}</DialogDescription>
+          </div>
+        </>
+      )}
+      footer={question && (
+        <>
+          <dl className="num flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <div className="flex gap-1"><dt>Odpovězeno</dt><dd className="text-foreground">{s?.seen ?? 0}×</dd></div>
+            <div className="flex gap-1"><dt>správně</dt><dd className="text-foreground">{s?.correct ?? 0}×</dd></div>
+            <div className="flex gap-1"><dt>špatně</dt><dd className="text-foreground">{s?.wrong ?? 0}×</dd></div>
+            <div className="flex items-center gap-1.5"><dt>řada</dt><dd><StreakDots streak={s?.streak ?? 0} /></dd></div>
+          </dl>
+          <div className="flex shrink-0 gap-2">
+            {waiting ? (
+              <Button variant="ghost" onClick={() => setAsk({ ...cur!, asking: false })}>
+                <EyeIcon data-icon="inline-start" />Ukázat odpověď
+              </Button>
+            ) : (
               <Button variant="outline" asChild><a href={`#/procvicovani/${question.area}`} onClick={() => onOpenChange(false)}>Procvičit okruh</a></Button>
-              {status(question) === 'wrong' && (
-                <Button asChild><a href="#/procvicovani/chyby" onClick={() => onOpenChange(false)}>Opakovat chyby</a></Button>
-              )}
-            </SheetFooter>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
+            )}
+          </div>
+        </>
+      )}
+    >
+      {question && (
+        <div className="flex flex-col gap-4">
+          <QuestionView
+            question={question}
+            reveal={!waiting}
+            selected={cur?.selected}
+            onSelect={waiting ? answer : undefined}
+            showMeta={false}
+            mediaClassName={CARD_MEDIA}
+          />
+          <AnimatePresence>
+            {cur?.asking && cur.selected != null && (
+              <motion.p
+                initial={{ opacity: 0, transform: 'translateY(8px)' }}
+                animate={{ opacity: 1, transform: 'translateY(0px)' }}
+                transition={{ duration: 0.2 }}
+                className={cn('rounded-lg px-4 py-3 text-sm', isCorrect ? 'bg-positive-soft text-positive-ink' : 'bg-negative-soft text-negative-ink')}
+              >
+                <b className="font-medium">{isCorrect ? 'Správně.' : 'Špatně.'}</b>{' '}
+                {isCorrect
+                  ? cur.review ? (cur.streakAfter >= MASTER_STREAK ? 'Otázka vypadla z chybovníku.' : `Ještě ${MASTER_STREAK - cur.streakAfter}× a vypadne z chybovníku.`) : 'Odpověď se uložila do statistik.'
+                  : cur.review ? 'Řada správných odpovědí začíná znovu.' : 'Otázka šla do chybovníku.'}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+    </QuestionCard>
   );
 }

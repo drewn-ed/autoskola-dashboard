@@ -156,4 +156,5 @@ export const formatDate = (iso: string) =>
 export const formatDuration = (s: number | null) =>
   s == null ? '–' : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')} min`;
 
-export const LETTERS = ['A', 'B', 'C', 'D'];
+/** Označení odpovědí a zároveň klávesy pro jejich výběr */
+export const ANSWER_KEYS = ['1', '2', '3', '4'];

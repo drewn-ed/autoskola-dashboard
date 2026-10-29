@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api, type Question } from '@/lib/api';
 import { go, useData } from '@/lib/data';
-import { areaStats, MASTER_STREAK, pickPractice, pickWrong, shuffle, statusOf } from '@/lib/stats';
+import { ANSWER_KEYS, areaStats, MASTER_STREAK, pickPractice, pickWrong, shuffle, statusOf } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { celebrate, CountUp, EASE_OUT, POP } from '@/lib/motion';
 
@@ -109,7 +109,8 @@ function Session({ mode }: { mode: string }) {
   const title = isReview ? 'Chybovník' : mode === 'nove' ? 'Neviděné otázky' : mode === 'vse' ? 'Mix všech okruhů' : areaName(mode);
 
   const pick = () => {
-    if (isReview) return pickWrong(bank.questions, stats, SESSION);
+    // Vybrat nejdůležitější chyby, ale v náhodném pořadí, aby se neopakovaly pořád stejně za sebou
+    if (isReview) return shuffle(pickWrong(bank.questions, stats, SESSION));
     if (mode === 'nove') return shuffle(bank.questions.filter((q) => statusOf(stats.get(q.id)) === 'unseen')).slice(0, SESSION);
     if (mode === 'vse') return pickPractice(bank.questions, stats, SESSION);
     return pickPractice(bank.questions.filter((q) => q.area === mode), stats, SESSION);
@@ -155,7 +156,7 @@ function Session({ mode }: { mode: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || !q || (e.target instanceof Element && e.target.closest('input, textarea, [role=dialog]'))) return;
-      const li = ['a', 'b', 'c', 'd'].indexOf(e.key.toLowerCase());
+      const li = ANSWER_KEYS.indexOf(e.key);
       if (li >= 0 && q.answers[li]) answer(q.answers[li].id);
       else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement))) next();
     };
@@ -266,7 +267,7 @@ function Session({ mode }: { mode: string }) {
         </motion.div>
       </AnimatePresence>
       <p className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
-        <Kbd>A</Kbd><Kbd>B</Kbd><Kbd>C</Kbd> výběr odpovědi · <Kbd>Enter</Kbd> další otázka
+        <Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> výběr odpovědi · <Kbd>Enter</Kbd> další otázka
       </p>
     </div>
   );

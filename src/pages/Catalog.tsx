@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, PlayIcon, SearchIcon } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
-import { QuestionSheet, StatusBadge } from '@/components/question-sheet';
+import { QuestionDialog, StatusBadge } from '@/components/question-sheet';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
@@ -159,7 +159,7 @@ export default function Catalog() {
           )}
         </CardContent>
       </Card>
-      <QuestionSheet question={open} onOpenChange={(o) => !o && setOpen(null)} />
+      <QuestionDialog question={open} onOpenChange={(o) => !o && setOpen(null)} />
     </>
   );
 }

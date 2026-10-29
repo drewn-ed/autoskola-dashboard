@@ -3,7 +3,7 @@ import { ClipboardCheckIcon, FileQuestionIcon, HistoryIcon, LayoutDashboardIcon,
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
 import { SidebarMenuButton } from '@/components/ui/sidebar';
-import { QuestionSheet, StatusBadge } from '@/components/question-sheet';
+import { QuestionDialog, StatusBadge } from '@/components/question-sheet';
 import type { Question } from '@/lib/api';
 import { go, useData } from '@/lib/data';
 
@@ -83,7 +83,7 @@ export function SearchCommand() {
           </CommandList>
         </Command>
       </CommandDialog>
-      <QuestionSheet question={detail} onOpenChange={(o) => !o && setDetail(null)} />
+      <QuestionDialog question={detail} onOpenChange={(o) => !o && setDetail(null)} />
     </>
   );
 }

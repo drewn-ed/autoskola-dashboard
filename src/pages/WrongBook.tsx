@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PlayIcon } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
-import { QuestionSheet, StreakDots } from '@/components/question-sheet';
+import { QuestionDialog, StreakDots } from '@/components/question-sheet';
 import { SnapshotView } from '@/components/question-view';
 import { Thumb } from '@/pages/Catalog';
 import { Button } from '@/components/ui/button';
@@ -128,7 +128,7 @@ export default function WrongBook() {
         </Card>
       )}
 
-      <QuestionSheet question={open} onOpenChange={(o) => !o && setOpen(null)} />
+      <QuestionDialog question={open} onOpenChange={(o) => !o && setOpen(null)} />
       <Sheet open={!!openExt} onOpenChange={(o) => !o && setOpenExt(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
