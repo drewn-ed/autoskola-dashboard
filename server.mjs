@@ -99,11 +99,46 @@ for (const q of bank.questions) {
   byQuestionText.get(key).push(q);
 }
 
+// Podobnost dvou textů 0–1 (Diceův koeficient znakových dvojic). Snese drobné rozdíly mezi
+// autoskola-testy.cz a ministerskou sadou: chybějící tečku, překlep nebo slovo navíc.
+function similarity(a, b) {
+  const x = norm(a).replace(/ /g, '');
+  const y = norm(b).replace(/ /g, '');
+  if (x === y) return 1;
+  if (x.length < 2 || y.length < 2) return 0;
+  const pairs = new Map();
+  for (let i = 0; i < x.length - 1; i++) pairs.set(x.slice(i, i + 2), (pairs.get(x.slice(i, i + 2)) ?? 0) + 1);
+  let shared = 0;
+  for (let i = 0; i < y.length - 1; i++) {
+    const k = y.slice(i, i + 2);
+    if (pairs.get(k) > 0) { shared++; pairs.set(k, pairs.get(k) - 1); }
+  }
+  return (2 * shared) / (x.length + y.length - 2);
+}
+
+const permutations = (n) => n <= 1 ? [[0]] : permutations(n - 1).flatMap((p) => Array.from({ length: n }, (_, i) => [...p.slice(0, i), n - 1, ...p.slice(i)]));
+const MIN_ANSWER_SIMILARITY = 0.85;
+
+/**
+ * Najde ministerskou otázku se stejným textem a k ní přiřadí odpovědi (pořadí se na webu liší).
+ * Vrací { q, answerIds }, kde answerIds[i] je id odpovědi v sadě pro i-tou odpověď z webu.
+ * Odpověď označená na webu jako správná musí být správná i v sadě, jinak by šlo o jinou otázku.
+ */
 function matchQuestion(item) {
-  const candidates = byQuestionText.get(norm(item.text)) ?? [];
-  const answerSet = (texts) => texts.map(norm).sort().join('|');
-  const wanted = answerSet(item.answers.map((a) => a.text));
-  return candidates.find((q) => answerSet(q.answers.map((a) => a.text)) === wanted) ?? null;
+  let best = null;
+  for (const q of byQuestionText.get(norm(item.text)) ?? []) {
+    if (q.answers.length !== item.answers.length) continue;
+    for (const perm of permutations(q.answers.length)) {
+      const scores = item.answers.map((a, i) => similarity(a.text, q.answers[perm[i]].text));
+      const worst = Math.min(...scores);
+      if (worst < MIN_ANSWER_SIMILARITY || (best && worst <= best.worst)) continue;
+      const answerIds = perm.map((j) => q.answers[j].id);
+      const webCorrect = item.answers.findIndex((a) => a.correct);
+      if (webCorrect >= 0 && answerIds[webCorrect] !== q.correct) continue;
+      best = { q, answerIds, worst };
+    }
+  }
+  return best;
 }
 
 function importEtesty(html) {
@@ -112,13 +147,12 @@ function importEtesty(html) {
   if (existing) return { status: 'duplicate', id: existing.id, title: parsed.title };
   let matched = 0;
   const items = parsed.items.map((it) => {
-    const q = matchQuestion(it);
+    const m = matchQuestion(it);
     const chosenIdx = it.answers.findIndex((a) => a.chosen);
     const base = { is_correct: it.isCorrect, time_ms: it.timeMs, mode: 'etesty', answered_at: parsed.startedAt };
-    if (q) {
+    if (m) {
       matched++;
-      const chosen = chosenIdx >= 0 ? q.answers.find((a) => norm(a.text) === norm(it.answers[chosenIdx].text)) : null;
-      return { ...base, question_id: q.id, chosen_answer_id: chosen?.id ?? null };
+      return { ...base, question_id: m.q.id, chosen_answer_id: m.answerIds[chosenIdx] ?? null };
     }
     return { ...base, snapshot: { code: it.code, category: it.category, points: it.points, text: it.text, image: it.image, answers: it.answers } };
   });
@@ -137,6 +171,23 @@ function importEtesty(html) {
   }, items);
   return { status: 'imported', id, title: parsed.title, total: items.length, matched };
 }
+
+// Otázky uložené dřív jako kopie zkusíme spárovat znovu (párování se mezitím mohlo zlepšit),
+// aby jejich chyby šly do chybovníku a statistik okruhů
+function rematchSnapshots() {
+  const rows = db.prepare('SELECT id, snapshot FROM answers WHERE question_id IS NULL AND snapshot IS NOT NULL').all();
+  const update = db.prepare('UPDATE answers SET question_id = ?, chosen_answer_id = ?, snapshot = NULL WHERE id = ?');
+  let n = 0;
+  for (const r of rows) {
+    const snap = JSON.parse(r.snapshot);
+    const m = matchQuestion(snap);
+    if (!m) continue;
+    update.run(m.q.id, m.answerIds[snap.answers.findIndex((a) => a.chosen)] ?? null, r.id);
+    n++;
+  }
+  if (n) console.log(`Znovu spárováno s ministerskou sadou: ${n} otázek z dřívějších importů`);
+}
+rematchSnapshots();
 
 // --- HTTP ---
 function send(res, status, body, headers = {}) {
