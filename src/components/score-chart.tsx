@@ -5,7 +5,7 @@ import { go } from '@/lib/data';
 import { PASS_SCORE } from '@/lib/stats';
 
 const config = { body: { label: 'Body', color: 'var(--sign)' } } satisfies ChartConfig;
-const SOURCE: Record<string, string> = { dashboard: 'Dashboard', etesty: 'eTesty', 'pripoustecí': 'Připouštěcí test' };
+const SOURCE: Record<string, string> = { dashboard: 'Dashboard', etesty: 'eTesty', 'pripoustecí': 'Připouštěcí test', ministerstvo: 'Ministerstvo' };
 
 /** Jedna řada (body přepočtené na 50), hranice 43 bodů jako referenční čára, žádná legenda */
 export function ScoreChart({ tests }: { tests: TestSummary[] }) {

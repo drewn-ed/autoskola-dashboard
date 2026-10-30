@@ -8,15 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
 import { api, type ImportResult } from '@/lib/api';
+import { bookmarkletHref } from '@/lib/bookmarklet';
 import { useData } from '@/lib/data';
 import { TestsTable } from '@/pages/History';
 import { cn } from '@/lib/utils';
 
 type Result = { ok: boolean; text: string; id?: number };
-
-// Bookmarklet: na stránce vyhodnocení testu odešle její HTML formulářem (POST) do dashboardu.
-// Server test uloží a přesměruje na jeho detail. Formulář je navigace, takže nepotřebuje povolení k místní síti.
-const bookmarklet = (origin: string) => `javascript:(()=>{if(!document.querySelector('[id=ot1]'))return alert('Otevři nejdřív stránku „vyhodnocení“ konkrétního testu.');const f=document.createElement('form');f.method='POST';f.action='${origin}/import/etesty';f.target='_blank';const i=document.createElement('input');i.type='hidden';i.name='html';i.value=document.documentElement.outerHTML;f.appendChild(i);document.body.appendChild(f);f.submit();f.remove()})()`;
 
 export default function Import({ failed = false }: { failed?: boolean }) {
   const { refresh, tests } = useData();
@@ -29,7 +26,7 @@ export default function Import({ failed = false }: { failed?: boolean }) {
 
   // React nedovolí href s javascript:, proto ho nastavíme přímo v DOM
   useEffect(() => {
-    linkRef.current?.setAttribute('href', bookmarklet(location.origin));
+    linkRef.current?.setAttribute('href', bookmarkletHref(location.origin));
   }, []);
 
   const describe = (name: string, r: ImportResult): Result =>
@@ -81,14 +78,14 @@ export default function Import({ failed = false }: { failed?: boolean }) {
     <>
       <PageHeader
         title="Import z eTestů"
-        description="Testy z autoskola-testy.cz (eTesty z Moje Autoškoly) přeneseš sem. Ministerské otázky se spárují s databází a chyby půjdou do chybovníku. Vlastní otázky autoškoly se uloží jako kopie."
+        description="Testy z autoskola-testy.cz (eTesty z Moje Autoškoly) i cvičné zkoušky z webu ministerstva přeneseš sem. Ministerské otázky se spárují s databází a chyby půjdou do chybovníku. Vlastní otázky autoškoly se uloží jako kopie."
       />
 
       {failed && (
         <Alert variant="destructive">
           <CircleAlertIcon />
           <AlertTitle>Import ze záložky se nepovedl</AlertTitle>
-          <AlertDescription>Záložku spusť na stránce „detailní vyhodnocení testu“. Jinak stránku ulož a nahraj ji níže.</AlertDescription>
+          <AlertDescription>Záložku spusť na stránce s výsledkem testu. U autoskola-testy.cz můžeš místo toho vložit odkaz nebo stránku uložit a nahrát níže.</AlertDescription>
         </Alert>
       )}
 
@@ -116,7 +113,7 @@ export default function Import({ failed = false }: { failed?: boolean }) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><BookmarkIcon className="size-4 text-muted-foreground" />Záložka v prohlížeči</CardTitle>
-            <CardDescription>Jedním kliknutím přeneseš test, na který se zrovna díváš, bez kopírování odkazu.</CardDescription>
+            <CardDescription>Jedním kliknutím přeneseš test, na který se zrovna díváš. Jediná cesta pro cvičné zkoušky ministerstva, které si výsledky nikam neukládá.</CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
@@ -126,10 +123,17 @@ export default function Import({ failed = false }: { failed?: boolean }) {
                   <a ref={linkRef} onClick={(e) => { e.preventDefault(); toast.info('Tlačítko přetáhni myší na lištu záložek. Tady na něj neklikej.'); }}>Do dashboardu</a>
                 </Button>
               </li>
-              <li>Na autoskola-testy.cz otevři Moje testy a u testu klikni na „vyhodnocení“.</li>
+              <li>
+                Otevři výsledek testu: na autoskola-testy.cz „vyhodnocení“ u testu, na{' '}
+                <a className="underline underline-offset-2" href="https://etesty.md.gov.cz/et" target="_blank" rel="noreferrer">etesty.md.gov.cz</a>{' '}
+                stránku, která se ukáže po „Ukončit a vyhodnotit test“.
+              </li>
               <li>Klikni na záložku „Do dashboardu“. V nové kartě se otevře uložený test. Dashboard při tom musí běžet.</li>
             </ol>
-            <p className="mt-4 text-xs text-muted-foreground">Když test pošleš podruhé, nic se nezdvojí. Otevře se už uložený test.</p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              V nové aplikaci ministerstva záložka sama projde detail každé otázky, chvíli to trvá. Když test pošleš podruhé, nic se nezdvojí.
+              Jestli už záložku máš z dřívějška, přetáhni ji znovu. Stará verze ministerstvo nezná.
+            </p>
           </CardContent>
         </Card>
 
@@ -159,7 +163,7 @@ export default function Import({ failed = false }: { failed?: boolean }) {
       <Card className="gap-2">
         <CardHeader>
           <CardTitle>Importované testy</CardTitle>
-          <CardDescription>Testy z eTestů a připouštěcí testy, které už v dashboardu máš.</CardDescription>
+          <CardDescription>Testy z eTestů, od ministerstva a připouštěcí testy, které už v dashboardu máš.</CardDescription>
         </CardHeader>
         <CardContent className="px-2 sm:px-4">
           {imported.length ? <TestsTable tests={imported} /> : <p className="py-6 text-center text-sm text-muted-foreground">Zatím žádný. Vlož odkaz, použij záložku nebo nahraj uloženou stránku.</p>}

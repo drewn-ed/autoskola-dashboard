@@ -20,7 +20,7 @@ export type AnswerRow = { q: number; c: number; t: string; m: string };
 
 export type TestSummary = {
   id: number;
-  source: 'dashboard' | 'etesty' | 'pripoustecí';
+  source: 'dashboard' | 'etesty' | 'pripoustecí' | 'ministerstvo';
   kind: string;
   title: string;
   started_at: string;

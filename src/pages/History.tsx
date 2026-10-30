@@ -9,7 +9,7 @@ import type { TestSummary } from '@/lib/api';
 import { go, useData } from '@/lib/data';
 import { formatDate, formatDuration, PASS_SCORE } from '@/lib/stats';
 
-export const SOURCE_LABEL: Record<string, string> = { dashboard: 'Dashboard', etesty: 'eTesty', 'pripoustecí': 'Připouštěcí' };
+export const SOURCE_LABEL: Record<string, string> = { dashboard: 'Dashboard', etesty: 'eTesty', 'pripoustecí': 'Připouštěcí', ministerstvo: 'Ministerstvo' };
 export const passedTest = (t: TestSummary) => t.score >= (t.pass_score ?? PASS_SCORE);
 
 export function ResultBadge({ ok }: { ok: boolean }) {

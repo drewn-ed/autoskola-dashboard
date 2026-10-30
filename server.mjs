@@ -5,6 +5,7 @@ import http from 'node:http';
 import { readFileSync, existsSync, mkdirSync, createReadStream, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { parseEtestyHtml } from './server/etesty-parser.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ if (!existsSync(bankPath)) {
 }
 const bank = JSON.parse(readFileSync(bankPath, 'utf8'));
 const byId = new Map(bank.questions.map((q) => [q.id, q]));
+const byCode = new Map(bank.questions.map((q) => [q.code, q]));
 
 // --- Tvoje data (testy a odpovědi) ---
 mkdirSync(path.join(ROOT, 'data'), { recursive: true });
@@ -34,7 +36,7 @@ const db = new DatabaseSync(path.join(ROOT, 'data/progress.db'));
 db.exec(`
   CREATE TABLE IF NOT EXISTS tests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,            -- 'dashboard' | 'etesty' | 'pripoustecí'
+    source TEXT NOT NULL,            -- 'dashboard' | 'etesty' | 'pripoustecí' | 'ministerstvo'
     kind TEXT NOT NULL,              -- 'exam' | 'practice'
     title TEXT NOT NULL,
     external_id TEXT UNIQUE,         -- test_ident z autoskola-testy.cz
@@ -189,6 +191,57 @@ function rematchSnapshots() {
 }
 rematchSnapshots();
 
+// --- Import cvičného testu z etesty.md.gov.cz (záložka přečte výsledek a pošle ho jako JSON) ---
+// Ministerstvo výsledky nikam neukládá ani k nim nedává odkaz, proto jde test přenést jen ze stránky výsledku.
+// Původní aplikace (/co) má na stránce rovnou id otázek a odpovědí, stejná jako v naší sadě.
+// Nová aplikace (/et) ukazuje jen kód otázky a texty odpovědí, záložka proto projde detail každé otázky.
+function importMinistry(data) {
+  const raw = Array.isArray(data?.items) ? data.items : [];
+  if (!raw.length || raw.length > 60) throw new Error('Ve výsledku testu nejsou žádné otázky');
+  const durationS = Number.isFinite(data.durationS) ? data.durationS : null;
+  const startedAt = new Date(Date.now() - (durationS ?? 0) * 1000).toISOString();
+  let matched = 0;
+  const items = raw.map((it) => {
+    const base = { time_ms: null, mode: 'etesty', answered_at: startedAt };
+    const q = data.kind === 'md-old' ? byId.get(Number(it.id)) : byCode.get(String(it.code ?? '').trim());
+    if (q) {
+      matched++;
+      let chosen = null;
+      if (data.kind === 'md-old') chosen = q.answers.find((a) => a.id === Number(it.answer))?.id ?? null;
+      else {
+        const text = it.answers?.find((a) => a.chosen)?.text;
+        const best = text == null ? null : q.answers.map((a) => ({ id: a.id, s: similarity(text, a.text) })).sort((a, b) => b.s - a.s)[0];
+        chosen = best && best.s >= MIN_ANSWER_SIMILARITY ? best.id : null;
+      }
+      return { ...base, question_id: q.id, chosen_answer_id: chosen, is_correct: chosen === q.correct, points: q.points };
+    }
+    // Otázka, která v naší stažené sadě chybí (třeba nově přidaná): uložit aspoň to, co víme
+    const answers = (it.answers ?? []).map((a) => ({ text: String(a.text ?? ''), chosen: !!a.chosen, correct: !!a.correct }));
+    const points = Number(it.points) || null;
+    return {
+      ...base, is_correct: !!it.correct, points: points ?? 0,
+      snapshot: { code: it.code ?? null, category: null, points, text: it.text || `Otázka č. ${it.id ?? '?'} (není ve stažené sadě otázek)`, image: null, answers },
+    };
+  });
+  // Stejný test poslaný podruhé (třeba dvojklikem na záložku) se nezdvojí
+  const fingerprint = createHash('sha1').update(JSON.stringify(raw.map((i) => [i.id ?? i.code, i.answer ?? i.answers?.findIndex((a) => a.chosen)]))).digest('hex').slice(0, 16);
+  const externalId = `md-${fingerprint}`;
+  const existing = db.prepare('SELECT id FROM tests WHERE external_id = ?').get(externalId);
+  const title = 'Cvičná zkouška ministerstva – skupina B';
+  if (existing) return { status: 'duplicate', id: existing.id, title };
+  const computed = items.reduce((s, i) => s + (i.is_correct ? i.points : 0), 0);
+  const id = insertTest({
+    source: 'ministerstvo', kind: 'exam', title, external_id: externalId, started_at: startedAt, duration_s: durationS,
+    // Body ze stránky mají přednost, kdyby některá otázka v naší sadě chyběla
+    score: Number.isFinite(data.score) ? data.score : computed,
+    max_score: Number.isFinite(data.maxScore) ? data.maxScore : items.reduce((s, i) => s + i.points, 0),
+    pass_score: 43,
+    correct_count: items.filter((i) => i.is_correct).length,
+    total: items.length,
+  }, items);
+  return { status: 'imported', id, title, total: items.length, matched };
+}
+
 // --- HTTP ---
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...headers });
@@ -319,9 +372,9 @@ async function handleApi(req, res) {
   }
 }
 
-// Záložka (bookmarklet) na autoskola-testy.cz odešle stránku vyhodnocení jako obyčejný formulář.
+// Záložka (bookmarklet) na autoskola-testy.cz nebo etesty.md.gov.cz odešle výsledek testu jako obyčejný formulář.
 // Je to navigace, ne fetch, takže ji prohlížeč nepodmiňuje povolením přístupu do místní sítě.
-const BOOKMARKLET_ORIGINS = new Set(['https://www.autoskola-testy.cz', 'https://autoskola-testy.cz']);
+const BOOKMARKLET_ORIGINS = new Set(['https://www.autoskola-testy.cz', 'https://autoskola-testy.cz', 'https://etesty.md.gov.cz']);
 async function handleBookmarklet(req, res) {
   const redirect = (hash) => { res.writeHead(303, { Location: `/#${hash}` }); res.end(); };
   // autoskola-testy.cz posílá Origin "null" a žádný Referer (přísná referrer policy). Odmítáme tedy jen
@@ -332,8 +385,8 @@ async function handleBookmarklet(req, res) {
     return redirect('/import/chyba');
   }
   try {
-    const html = new URLSearchParams(await readBody(req, 10_000_000)).get('html') ?? '';
-    const r = importEtesty(html);
+    const form = new URLSearchParams(await readBody(req, 10_000_000));
+    const r = form.has('json') ? importMinistry(JSON.parse(form.get('json'))) : importEtesty(form.get('html') ?? '');
     redirect(`/historie/${r.id}`);
   } catch (e) {
     console.error('Import ze záložky selhal:', e.message);
