@@ -32,6 +32,8 @@ export type TestSummary = {
   total: number;
 };
 
+export type ImportResult = { status: 'imported' | 'duplicate'; id?: number; title: string; total?: number; matched?: number };
+
 export type Snapshot = {
   code: string | null;
   category: string | null;
@@ -82,7 +84,9 @@ export const api = {
     req<{ id: number }>('/api/tests', json(t)),
   externalWrong: () => req<ExternalWrong[]>('/api/external-wrong'),
   importEtesty: (html: string) =>
-    req<{ status: 'imported' | 'duplicate'; id?: number; title: string; total?: number; matched?: number }>('/api/import/etesty', json({ html })),
+    req<ImportResult>('/api/import/etesty', json({ html })),
+  importEtestyUrl: (url: string) =>
+    req<ImportResult>('/api/import/etesty-url', json({ url })),
 };
 
 export const mediaUrl = (m: Media) => `/media/${m.file}`;

@@ -223,7 +223,26 @@ const routes = {
       send(res, 400, { error: e.message });
     }
   },
+
+  // Import z odkazu na vyhodnocení: stránka je veřejná (bez přihlášení), server si ji jen stáhne
+  'POST /api/import/etesty-url': async (req, res) => {
+    try {
+      const url = evaluationUrl(JSON.parse(await readBody(req)).url);
+      const r = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      if (!r.ok) throw new Error(`autoskola-testy.cz odpověděla chybou ${r.status}`);
+      send(res, 200, importEtesty(await r.text()));
+    } catch (e) {
+      send(res, 400, { error: e.name === 'TimeoutError' ? 'autoskola-testy.cz neodpovídá, zkus to za chvíli' : e.message });
+    }
+  },
 };
+
+// Stahujeme jen stránku vyhodnocení z autoskola-testy.cz, nikdy libovolnou adresu
+function evaluationUrl(input) {
+  const ident = String(input ?? '').trim().match(/^https?:\/\/(?:www\.)?autoskola-testy\.cz\/autoskola_test_vyhodnoceni(?:_full)?\.php\?(?:.*&)?test_ident=([a-z0-9]+)/i)?.[1];
+  if (!ident) throw new Error('Vlož odkaz na vyhodnocení testu z autoskola-testy.cz (obsahuje test_ident=…)');
+  return `https://www.autoskola-testy.cz/autoskola_test_vyhodnoceni_full.php?test_ident=${ident}`;
+}
 
 async function handleApi(req, res) {
   const url = new URL(req.url, 'http://localhost');

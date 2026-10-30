@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookmarkIcon, CircleAlertIcon, FileUpIcon } from 'lucide-react';
+import { BookmarkIcon, CircleAlertIcon, FileUpIcon, LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { api } from '@/lib/api';
+import { api, type ImportResult } from '@/lib/api';
 import { useData } from '@/lib/data';
 import { TestsTable } from '@/pages/History';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ export default function Import({ failed = false }: { failed?: boolean }) {
   const [results, setResults] = useState<Result[]>([]);
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
+  const [link, setLink] = useState('');
   const linkRef = useRef<HTMLAnchorElement>(null);
 
   // React nedovolí href s javascript:, proto ho nastavíme přímo v DOM
@@ -30,12 +32,14 @@ export default function Import({ failed = false }: { failed?: boolean }) {
     linkRef.current?.setAttribute('href', bookmarklet(location.origin));
   }, []);
 
+  const describe = (name: string, r: ImportResult): Result =>
+    r.status === 'duplicate'
+        ? { ok: true, text: `${name}: tenhle test už v dashboardu je`, id: r.id }
+      : { ok: true, text: `${name}: ${r.title}, ${r.matched} z ${r.total} otázek spárováno s ministerskou sadou`, id: r.id };
+
   const importHtml = async (name: string, html: string): Promise<Result> => {
     try {
-      const r = await api.importEtesty(html);
-      return r.status === 'duplicate'
-        ? { ok: true, text: `${name}: tenhle test už v dashboardu je`, id: r.id }
-        : { ok: true, text: `${name}: ${r.title}, ${r.matched} z ${r.total} otázek spárováno s ministerskou sadou`, id: r.id };
+      return describe(name, await api.importEtesty(html));
     } catch (e) {
       return { ok: false, text: `${name}: ${(e as Error).message}` };
     }
@@ -54,6 +58,25 @@ export default function Import({ failed = false }: { failed?: boolean }) {
     if (okCount < out.length) toast.error('Některé soubory se nepodařilo naimportovat');
   };
 
+  // Stránka vyhodnocení je veřejná, takže stačí odkaz: server si ji stáhne sám
+  const onLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!link.trim() || busy) return;
+    setBusy(true);
+    try {
+      const r = await api.importEtestyUrl(link);
+      setResults((rs) => [describe('Odkaz', r), ...rs]);
+      await refresh();
+      setLink('');
+      toast.success(r.status === 'duplicate' ? 'Tenhle test už v dashboardu je' : 'Test naimportován');
+      location.hash = `#/historie/${r.id}`;
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -69,11 +92,31 @@ export default function Import({ failed = false }: { failed?: boolean }) {
         </Alert>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><LinkIcon className="size-4 text-muted-foreground" />Vložit odkaz na vyhodnocení</CardTitle>
+          <CardDescription>Na autoskola-testy.cz otevři u testu „vyhodnocení“, zkopíruj adresu stránky a vlož ji sem. Test se uloží a otevře.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onLink} className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://www.autoskola-testy.cz/autoskola_test_vyhodnoceni_full.php?test_ident=…"
+              aria-label="Odkaz na vyhodnocení testu"
+              inputMode="url"
+              disabled={busy}
+            />
+            <Button type="submit" disabled={busy || !link.trim()}>{busy ? 'Importuji…' : 'Importovat'}</Button>
+          </form>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><BookmarkIcon className="size-4 text-muted-foreground" />Záložka v prohlížeči</CardTitle>
-            <CardDescription>Nejrychlejší cesta. Jedním kliknutím přeneseš test, na který se zrovna díváš.</CardDescription>
+            <CardDescription>Jedním kliknutím přeneseš test, na který se zrovna díváš, bez kopírování odkazu.</CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
@@ -119,7 +162,7 @@ export default function Import({ failed = false }: { failed?: boolean }) {
           <CardDescription>Testy z eTestů a připouštěcí testy, které už v dashboardu máš.</CardDescription>
         </CardHeader>
         <CardContent className="px-2 sm:px-4">
-          {imported.length ? <TestsTable tests={imported} /> : <p className="py-6 text-center text-sm text-muted-foreground">Zatím žádný. Použij záložku nebo nahraj uloženou stránku.</p>}
+          {imported.length ? <TestsTable tests={imported} /> : <p className="py-6 text-center text-sm text-muted-foreground">Zatím žádný. Vlož odkaz, použij záložku nebo nahraj uloženou stránku.</p>}
         </CardContent>
       </Card>
 

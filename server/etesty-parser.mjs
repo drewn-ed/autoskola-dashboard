@@ -30,21 +30,23 @@ export function parseEtestyHtml(html) {
   const passScore = Number(html.match(/potřebné minimum:\s*(\d+)/i)?.[1] ?? 43);
   const durationS = parseMinSec(html.match(/Čas vyplňování:\s*<strong>([\d:]+)/i)?.[1]);
 
-  // Souhrnná tabulka: výsledek a čas každé otázky
+  // Souhrnná tabulka: výsledek a čas každé otázky. Server píše onClick a <B>, prohlížeč (uložená stránka,
+  // záložka) to převede na malá písmena, proto se značky hledají bez ohledu na velikost písmen.
   const rows = new Map();
-  for (const m of html.matchAll(/<tr class="cursor-pointer" onclick="\$\('#ot(\d+)'\)[\s\S]*?<\/tr>/g)) {
-    const cells = [...m[0].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => text(c[1]));
+  for (const m of html.matchAll(/<tr class="cursor-pointer" onclick="\$\('#ot(\d+)'\)[\s\S]*?<\/tr>/gi)) {
+    const cells = [...m[0].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => text(c[1]));
     rows.set(Number(m[1]), { isCorrect: cells[1] === 'správně', timeS: parseMinSec(cells[2]) });
   }
 
   const items = [];
-  for (const m of html.matchAll(/<span[^>]*id="ot(\d+)"[^>]*>([\s\S]*?)<\/span>\s*<\/td>/g)) {
+  for (const m of html.matchAll(/<span[^>]*id="ot(\d+)"[^>]*>([\s\S]*?)<\/span>\s*<\/td>/gi)) {
     const n = Number(m[1]);
     const body = m[2];
     const meta = body.match(/kód otázky:\s*([^,]+),\s*počet bodů:+\s*(\d+),\s*kategorie:\s*([^)]*)\)/);
     const qText = body.match(/<\/font>\s*<br>\s*<b>([\s\S]*?)<\/b>/i)?.[1];
     const image = body.match(/<img[^>]+src="([^"]+)"/i)?.[1];
-    const answers = [...body.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((a) => ({
+    // Server nechává <li> neuzavřené (doplní je až prohlížeč), odpověď proto končí i u dalšího <li> nebo </ul>
+    const answers = [...body.matchAll(/<li>([\s\S]*?)(?=<\/?li>|<\/ul>)/gi)].map((a) => ({
       chosen: a[1].includes('(VAŠE VOLBA)'),
       correct: a[1].includes('(SPRÁVNÁ ODPOVĚĎ)'),
       text: text(a[1].replace(/<strong>\((VAŠE VOLBA|SPRÁVNÁ ODPOVĚĎ)\)\s*<\/strong>/g, '')).replace(/^\d+\)\s*/, ''),
