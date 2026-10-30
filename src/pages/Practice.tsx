@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, RotateCcwIcon, ShuffleIcon, SparklesIcon, XIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { QuestionView } from '@/components/question-view';
 import { Button } from '@/components/ui/button';
@@ -132,7 +133,8 @@ function Session({ mode }: { mode: string }) {
     setSelected(answerId);
     setStreakAfter(ok ? (stats.get(q.id)?.streak ?? 0) + 1 : 0);
     setResults((r) => [...r, ok]);
-    api.answer({ question_id: q.id, chosen_answer_id: answerId, time_ms: Date.now() - shownAt.current, mode: isReview ? 'review' : 'practice' }).then(refresh);
+    api.answer({ question_id: q.id, chosen_answer_id: answerId, time_ms: Date.now() - shownAt.current, mode: isReview ? 'review' : 'practice' })
+      .then(refresh, () => toast.error('Odpověď se nepodařilo uložit. Běží aplikace?'));
   };
   const next = () => {
     if (selected == null) return;

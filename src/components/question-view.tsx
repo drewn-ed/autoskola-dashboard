@@ -17,17 +17,32 @@ export function MediaView({ media, className }: { media: Media; className?: stri
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const label = media.type === 'video' ? 'Video' : 'Obrázek';
+  const retry = () => { setFailed(false); setAttempt((a) => a + 1); };
 
   if (failed) {
     return (
       <div className="flex w-full max-w-md flex-col items-start gap-3 self-start rounded-lg border border-dashed px-4 py-3.5 text-sm text-muted-foreground">
         <span className="flex items-center gap-2">
           <ImageOffIcon className="size-4 shrink-0" />
-          {label} k otázce se nepodařilo načíst. Běží aplikace?
+          {label} se nepodařilo načíst. Běží aplikace?
         </span>
-        <Button size="sm" variant="outline" onClick={() => { setFailed(false); setAttempt((a) => a + 1); }}>
-          <RotateCwIcon data-icon="inline-start" />
-          Zkusit znovu
+        {/* Obrázek může být uvnitř odpovědi, která je sama tlačítkem: proto span místo vnořeného <button>
+            a stopPropagation, aby nové načtení odpověď zároveň nevybralo */}
+        <Button asChild size="sm" variant="outline">
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); retry(); }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              e.stopPropagation();
+              retry();
+            }}
+          >
+            <RotateCwIcon data-icon="inline-start" />
+            Zkusit znovu
+          </span>
         </Button>
       </div>
     );
@@ -40,6 +55,9 @@ export function MediaView({ media, className }: { media: Media; className?: stri
     <img key={attempt} className={cn('rounded-lg', className)} src={src} alt={label} loading="lazy" onError={() => setFailed(true)} />
   );
 }
+
+// Odpovědi tvořené jen obrázkem mají v ministerské sadě místo textu tečku
+const hasText = (s: string | null) => !!s && /[\p{L}\p{N}]/u.test(s);
 
 export const pointsLabel = (n: number) => `${n} ${n === 1 ? 'bod' : n < 5 ? 'body' : 'bodů'}`;
 
@@ -132,8 +150,8 @@ export function QuestionView({ question: q, selected, onSelect, reveal, showMeta
           return (
             <div role="listitem" key={a.id}>
               <AnswerOption index={i} state={state} onClick={onSelect && !reveal ? () => onSelect(a.id) : undefined}>
-                {a.media && <MediaView media={a.media} className="max-w-[260px]" />}
-                {a.text && <span>{a.text}</span>}
+                {a.media && <MediaView media={a.media} className="max-h-[17dvh] w-auto max-w-[260px] self-start" />}
+                {hasText(a.text) && <span>{a.text}</span>}
               </AnswerOption>
             </div>
           );
