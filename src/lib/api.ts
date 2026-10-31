@@ -56,7 +56,8 @@ export type TestDetail = TestSummary & { items: TestItem[] };
 export type ExternalWrong = { test_id: number; started_at: string; title: string; snapshot: Snapshot };
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  // fetch selže jen tehdy, když server vůbec neodpovídá (třeba je vypnutý)
+  const res = await fetch(url, init).catch(() => { throw new Error('Server dashboardu neodpovídá. Běží aplikace?'); });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error ?? `Chyba ${res.status}`);
   return body as T;

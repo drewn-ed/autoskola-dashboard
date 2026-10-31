@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeftIcon, CheckIcon, ClipboardCheckIcon, PlayIcon, RotateCcwIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, ClipboardCheckIcon, PlayIcon, RotateCcwIcon, RotateCwIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
@@ -36,6 +36,7 @@ export default function TestDetailPage({ id }: { id: number }) {
   const { byId, areaName, refresh } = useData();
   const [test, setTest] = useState<TestDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [filter, setFilter] = useState<'all' | 'wrong'>('all');
   // Index otevřené otázky v aktuálně zobrazeném seznamu (Všechny / Chyby)
   const [openIdx, setOpenIdx] = useState<number | null>(null);
@@ -43,14 +44,25 @@ export default function TestDetailPage({ id }: { id: number }) {
   // Čerstvě vyhodnocená zkouška (přišli jsme z ní): jednou se odehraje výsledek
   const [fresh] = useState(() => location.hash.includes('?nova'));
   useEffect(() => {
+    setError(null);
     api.test(id).then(setTest, (e) => setError(e.message));
     if (fresh) history.replaceState(null, '', `#/historie/${id}`);
-  }, [id, fresh]);
+  }, [id, fresh, attempt]);
   useEffect(() => {
     if (fresh && test && test.score >= (test.pass_score ?? PASS_SCORE)) setTimeout(celebrate, 350);
   }, [fresh, test]);
 
-  if (error) return <p className="text-sm text-muted-foreground">{error}</p>;
+  if (error) {
+    return (
+      <div className="flex flex-col items-start gap-3 text-sm text-muted-foreground">
+        <p>{error}</p>
+        <Button size="sm" variant="outline" onClick={() => setAttempt((a) => a + 1)}>
+          <RotateCwIcon data-icon="inline-start" />
+          Zkusit znovu
+        </Button>
+      </div>
+    );
+  }
   if (!test) return <div className="flex flex-col gap-4"><Skeleton className="h-10 w-80" /><Skeleton className="h-24 w-full" /><Skeleton className="h-96 w-full" /></div>;
 
   const passScore = test.pass_score ?? PASS_SCORE;

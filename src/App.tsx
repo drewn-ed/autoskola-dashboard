@@ -41,7 +41,7 @@ function Page({ page, param }: { page: string; param?: string }) {
 }
 
 function Loading({ error }: { error: string | null }) {
-  if (error) return <div className="grid min-h-svh place-items-center p-6 text-sm text-muted-foreground">Nepodařilo se načíst data: {error}. Běží server?</div>;
+  if (error) return <div className="grid min-h-svh place-items-center p-6 text-sm text-muted-foreground">Nepodařilo se načíst data: {error}</div>;
   return (
     <div className="flex min-h-svh gap-6 bg-background p-6">
       <Skeleton className="hidden h-[calc(100svh-3rem)] w-60 md:block" />
