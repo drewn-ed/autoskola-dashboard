@@ -163,7 +163,7 @@ function Session({ mode }: { mode: string }) {
       if (e.metaKey || e.ctrlKey || e.altKey || !q || (e.target instanceof Element && e.target.closest('input, textarea, [role=dialog]'))) return;
       const li = ANSWER_KEYS.indexOf(e.key);
       if (li >= 0 && q.answers[li]) answer(q.answers[li].id);
-      else if ((e.key === 'n' || e.key === 'N') && selected != null) toggleFlag(q.id);
+      else if (e.key === 'n' || e.key === 'N') toggleFlag(q.id);
       else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement))) next();
     };
     window.addEventListener('keydown', onKey);
@@ -247,9 +247,12 @@ function Session({ mode }: { mode: string }) {
         >
           <Card>
             <CardContent className="flex flex-col gap-5">
-              {s && s.seen > 0 && selected == null && (
-                <span className="num text-xs text-muted-foreground">Dosud {s.correct}× správně, {s.wrong}× špatně</span>
-              )}
+              <div className="flex min-h-7 items-center justify-between gap-3">
+                <span className="num text-xs text-muted-foreground">
+                  {s && s.seen > 0 && selected == null && `Dosud ${s.correct}× správně, ${s.wrong}× špatně`}
+                </span>
+                <FlagButton questionId={q.id} shortcut />
+              </div>
               <QuestionView question={q} selected={selected} onSelect={answer} reveal={selected != null} />
               <AnimatePresence>
                 {selected != null && (
@@ -265,13 +268,10 @@ function Session({ mode }: { mode: string }) {
                         ? isReview ? (streakAfter >= MASTER_STREAK ? 'Otázka vypadla z chybovníku.' : `Ještě ${MASTER_STREAK - streakAfter}× a vypadne z chybovníku.`) : ''
                         : isReview ? 'Řada správných odpovědí začíná znovu.' : 'Otázka šla do chybovníku.'}
                     </span>
-                    <div className="flex gap-2">
-                      <FlagButton questionId={q.id} shortcut />
-                      <Button size="sm" onClick={next} autoFocus>
-                        {idx === questions.length - 1 ? 'Dokončit kolo' : 'Další otázka'}
-                        <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground md:inline-flex">Enter</Kbd>
-                      </Button>
-                    </div>
+                    <Button size="sm" onClick={next} autoFocus>
+                      {idx === questions.length - 1 ? 'Dokončit kolo' : 'Další otázka'}
+                      <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground md:inline-flex">Enter</Kbd>
+                    </Button>
                   </motion.div>
                 )}
               </AnimatePresence>
