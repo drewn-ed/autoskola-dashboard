@@ -62,9 +62,12 @@ export function TestQuestionDialog({ items, index, onIndexChange }: {
               {it.time_ms != null && ` · ${Math.round(it.time_ms / 1000)} s na odpověď`}
             </DialogDescription>
           </div>
-          <Badge variant={it.is_correct ? 'positive' : 'negative'} className="num ml-auto">
-            {it.is_correct ? '+' : '−'}{points} b
-          </Badge>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {q && <FlagButton questionId={q.id} compact />}
+            <Badge variant={it.is_correct ? 'positive' : 'negative'} className="num">
+              {it.is_correct ? '+' : '−'}{points} b
+            </Badge>
+          </div>
         </>
       )}
       footer={it && (
@@ -72,10 +75,7 @@ export function TestQuestionDialog({ items, index, onIndexChange }: {
           <Button variant="outline" onClick={() => go(index! - 1)} disabled={index === 0}>
             <ArrowLeftIcon data-icon="inline-start" />Předchozí
           </Button>
-          <div className="flex items-center gap-3">
-            <span className="num text-sm text-muted-foreground">{index! + 1} z {items.length}</span>
-            {q && <FlagButton questionId={q.id} compact />}
-          </div>
+          <span className="num text-sm text-muted-foreground">{index! + 1} z {items.length}</span>
           <Button variant="outline" onClick={() => go(index! + 1)} disabled={index === items.length - 1}>
             Další<ArrowRightIcon data-icon="inline-end" />
           </Button>
