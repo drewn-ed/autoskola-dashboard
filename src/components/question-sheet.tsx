@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { FlagButton } from '@/components/flag-button';
 import { CARD_MEDIA, QuestionCard } from '@/components/question-card';
 import { pointsLabel, QuestionView } from '@/components/question-view';
 import { api, type Question } from '@/lib/api';
@@ -97,6 +98,7 @@ export function QuestionDialog({ question, onOpenChange }: { question: Question 
             <div className="flex items-center gap-1.5"><dt>řada</dt><dd><StreakDots streak={s?.streak ?? 0} /></dd></div>
           </dl>
           <div className="flex shrink-0 gap-2">
+            <FlagButton questionId={question.id} compact />
             {waiting ? (
               <Button variant="ghost" onClick={() => setAsk({ ...cur!, asking: false })}>
                 <EyeIcon data-icon="inline-start" />Ukázat odpověď

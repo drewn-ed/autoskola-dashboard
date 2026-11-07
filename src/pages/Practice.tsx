@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, RotateCcwIcon, ShuffleIcon, SparklesIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { FlagButton } from '@/components/flag-button';
 import { PageHeader } from '@/components/page-header';
 import { QuestionView } from '@/components/question-view';
 import { Button } from '@/components/ui/button';
@@ -105,13 +106,15 @@ function Menu() {
 }
 
 function Session({ mode }: { mode: string }) {
-  const { bank, stats, areaName, refresh } = useData();
+  const { bank, stats, areaName, refresh, flags, toggleFlag } = useData();
   const isReview = mode === 'chyby';
-  const title = isReview ? 'Chybovník' : mode === 'nove' ? 'Neviděné otázky' : mode === 'vse' ? 'Mix všech okruhů' : areaName(mode);
+  const isUnclear = mode === 'nerozumim';
+  const title = isReview ? 'Chybovník' : isUnclear ? 'Nerozumím' : mode === 'nove' ? 'Neviděné otázky' : mode === 'vse' ? 'Mix všech okruhů' : areaName(mode);
 
   const pick = () => {
     // Vybrat nejdůležitější chyby, ale v náhodném pořadí, aby se neopakovaly pořád stejně za sebou
     if (isReview) return shuffle(pickWrong(bank.questions, stats, SESSION));
+    if (isUnclear) return shuffle(bank.questions.filter((q) => flags.has(q.id))).slice(0, SESSION);
     if (mode === 'nove') return shuffle(bank.questions.filter((q) => statusOf(stats.get(q.id)) === 'unseen')).slice(0, SESSION);
     if (mode === 'vse') return pickPractice(bank.questions, stats, SESSION);
     return pickPractice(bank.questions.filter((q) => q.area === mode), stats, SESSION);
@@ -160,6 +163,7 @@ function Session({ mode }: { mode: string }) {
       if (e.metaKey || e.ctrlKey || e.altKey || !q || (e.target instanceof Element && e.target.closest('input, textarea, [role=dialog]'))) return;
       const li = ANSWER_KEYS.indexOf(e.key);
       if (li >= 0 && q.answers[li]) answer(q.answers[li].id);
+      else if ((e.key === 'n' || e.key === 'N') && selected != null) toggleFlag(q.id);
       else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement))) next();
     };
     window.addEventListener('keydown', onKey);
@@ -175,8 +179,12 @@ function Session({ mode }: { mode: string }) {
         <PageHeader back={back} title={title} />
         <Empty className="border border-dashed bg-card">
           <EmptyHeader>
-            <EmptyTitle>{isReview ? 'Chybovník je prázdný' : 'Tady už nic nezbývá'}</EmptyTitle>
-            <EmptyDescription>{isReview ? 'Všechny chyby máš opravené. Zkus cvičnou zkoušku nebo nové otázky.' : 'Všechny otázky z tohoto výběru už jsi viděl.'}</EmptyDescription>
+            <EmptyTitle>{isReview ? 'Chybovník je prázdný' : isUnclear ? 'Žádné otázky, kterým nerozumíš' : 'Tady už nic nezbývá'}</EmptyTitle>
+            <EmptyDescription>
+              {isReview ? 'Všechny chyby máš opravené. Zkus cvičnou zkoušku nebo nové otázky.'
+                : isUnclear ? 'Po odpovědi klikni na „Nerozumím“ a otázka se uloží sem.'
+                : 'Všechny otázky z tohoto výběru už jsi viděl.'}
+            </EmptyDescription>
           </EmptyHeader>
           <EmptyContent className="flex-row justify-center">
             <Button variant="outline" asChild><a href="#/procvicovani/nove">Nové otázky</a></Button>
@@ -257,10 +265,13 @@ function Session({ mode }: { mode: string }) {
                         ? isReview ? (streakAfter >= MASTER_STREAK ? 'Otázka vypadla z chybovníku.' : `Ještě ${MASTER_STREAK - streakAfter}× a vypadne z chybovníku.`) : ''
                         : isReview ? 'Řada správných odpovědí začíná znovu.' : 'Otázka šla do chybovníku.'}
                     </span>
-                    <Button size="sm" onClick={next} autoFocus>
-                      {idx === questions.length - 1 ? 'Dokončit kolo' : 'Další otázka'}
-                      <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground md:inline-flex">Enter</Kbd>
-                    </Button>
+                    <div className="flex gap-2">
+                      <FlagButton questionId={q.id} shortcut />
+                      <Button size="sm" onClick={next} autoFocus>
+                        {idx === questions.length - 1 ? 'Dokončit kolo' : 'Další otázka'}
+                        <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground md:inline-flex">Enter</Kbd>
+                      </Button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -269,7 +280,7 @@ function Session({ mode }: { mode: string }) {
         </motion.div>
       </AnimatePresence>
       <p className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
-        <Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> výběr odpovědi · <Kbd>Enter</Kbd> další otázka
+        <Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> výběr odpovědi · <Kbd>N</Kbd> nerozumím · <Kbd>Enter</Kbd> další otázka
       </p>
     </div>
   );

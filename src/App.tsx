@@ -12,6 +12,7 @@ import Overview from '@/pages/Overview';
 import Exam from '@/pages/Exam';
 import Practice from '@/pages/Practice';
 import WrongBook from '@/pages/WrongBook';
+import Unclear from '@/pages/Unclear';
 import Catalog from '@/pages/Catalog';
 import History from '@/pages/History';
 import TestDetailPage from '@/pages/TestDetail';
@@ -21,6 +22,7 @@ const TITLES: Record<string, string> = {
   '': 'Přehled',
   procvicovani: 'Procvičování',
   chybovnik: 'Chybovník',
+  nerozumim: 'Nerozumím',
   zkouska: 'Cvičná zkouška',
   otazky: 'Otázky',
   historie: 'Historie testů',
@@ -33,6 +35,7 @@ function Page({ page, param }: { page: string; param?: string }) {
     case 'zkouska': return <Exam />;
     case 'procvicovani': return <Practice mode={param} key={param ?? 'menu'} />;
     case 'chybovnik': return <WrongBook />;
+    case 'nerozumim': return <Unclear />;
     case 'otazky': return <Catalog />;
     case 'historie': return param ? <TestDetailPage id={Number(param)} key={param} /> : <History />;
     case 'import': return <Import failed={param === 'chyba'} />;
@@ -55,7 +58,7 @@ function Loading({ error }: { error: string | null }) {
 }
 
 // Pořadí stránek v menu: obsah přijede ze směru, kterým se v menu posouváš
-const ORDER = ['', 'procvicovani', 'chybovnik', 'zkouska', 'otazky', 'historie', 'import'];
+const ORDER = ['', 'procvicovani', 'chybovnik', 'nerozumim', 'zkouska', 'otazky', 'historie', 'import'];
 
 function useGlideDirection(page: string, param?: string) {
   const prev = useRef({ key: '', index: 0, dir: 0 });

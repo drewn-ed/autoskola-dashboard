@@ -62,6 +62,11 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS answers_q ON answers(question_id, answered_at);
   CREATE INDEX IF NOT EXISTS answers_t ON answers(test_id, pos);
+  -- Otázky, které si uživatel označil „Nerozumím“ (nezávisle na tom, jestli odpověděl správně)
+  CREATE TABLE IF NOT EXISTS flags (
+    question_id INTEGER PRIMARY KEY,
+    flagged_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -299,6 +304,8 @@ const routes = {
      WHERE a.question_id IS NULL AND a.is_correct = 0 ORDER BY t.started_at DESC, a.pos`).all()
     .map((r) => ({ ...r, snapshot: JSON.parse(r.snapshot) }))),
 
+  'GET /api/flags': (req, res) => send(res, 200, db.prepare('SELECT question_id AS q, flagged_at AS t FROM flags ORDER BY flagged_at DESC').all()),
+
   'GET /api/tests': (req, res) => send(res, 200, db.prepare('SELECT * FROM tests ORDER BY started_at DESC').all()),
 
   // Dokončená cvičná zkouška z dashboardu; skóre se počítá na serveru
@@ -361,6 +368,14 @@ async function handleApi(req, res) {
   if (testMatch && req.method === 'DELETE') {
     db.prepare('DELETE FROM answers WHERE test_id = ?').run(Number(testMatch[1]));
     db.prepare('DELETE FROM tests WHERE id = ?').run(Number(testMatch[1]));
+    return send(res, 200, { ok: true });
+  }
+  const flagMatch = url.pathname.match(/^\/api\/flags\/(\d+)$/);
+  if (flagMatch && (req.method === 'PUT' || req.method === 'DELETE')) {
+    const q = byId.get(Number(flagMatch[1]));
+    if (!q) return send(res, 400, { error: 'Neznámá otázka' });
+    if (req.method === 'PUT') db.prepare('INSERT OR IGNORE INTO flags (question_id, flagged_at) VALUES (?, ?)').run(q.id, now());
+    else db.prepare('DELETE FROM flags WHERE question_id = ?').run(q.id);
     return send(res, 200, { ok: true });
   }
   const handler = routes[`${req.method} ${url.pathname}`];

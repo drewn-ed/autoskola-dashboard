@@ -17,6 +17,9 @@
     --color-negative: var(--negative);
     --color-negative-soft: var(--negative-soft);
     --color-negative-ink: var(--negative-ink);
+    --color-unclear: var(--unclear);
+    --color-unclear-soft: var(--unclear-soft);
+    --color-unclear-ink: var(--unclear-ink);
     --color-unseen: var(--unseen);
     --color-rule: var(--rule);
     --font-heading: var(--font-sans);
@@ -106,6 +109,9 @@
     --negative: #c4242a;
     --negative-soft: #ffedea;
     --negative-ink: #831c1e;
+    --unclear: #b06400;         /* jantarová: otázky, kterým nerozumím */
+    --unclear-soft: #fff1d6;
+    --unclear-ink: #6b3a00;
     --unseen: #dde1e6;
     --rule: #eef0f2;
 }
@@ -156,6 +162,9 @@
     --negative: #e5566f;
     --negative-soft: #301c22;
     --negative-ink: #f0798d;
+    --unclear: #e0a43a;
+    --unclear-soft: #33270f;
+    --unclear-ink: #f0bb5e;
     --unseen: #363d48;
     --rule: #2a2f37;
 }

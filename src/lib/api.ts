@@ -18,6 +18,9 @@ export type Bank = { fetchedAt: string; areas: Area[]; questions: Question[] };
 /** Jedna odpověď na ministerskou otázku (q = id otázky, c = 1 správně / 0 špatně) */
 export type AnswerRow = { q: number; c: number; t: string; m: string };
 
+/** Otázka označená „Nerozumím“ (q = id otázky, t = kdy) */
+export type FlagRow = { q: number; t: string };
+
 export type TestSummary = {
   id: number;
   source: 'dashboard' | 'etesty' | 'pripoustecí' | 'ministerstvo';
@@ -78,6 +81,8 @@ export const api = {
   answers: () => req<AnswerRow[]>('/api/answers'),
   answer: (a: { question_id: number; chosen_answer_id: number | null; time_ms: number; mode: 'practice' | 'review' }) =>
     req<{ is_correct: boolean }>('/api/answers', json(a)),
+  flags: () => req<FlagRow[]>('/api/flags'),
+  setFlag: (questionId: number, on: boolean) => req<{ ok: true }>(`/api/flags/${questionId}`, { method: on ? 'PUT' : 'DELETE' }),
   tests: () => req<TestSummary[]>('/api/tests'),
   test: (id: number) => req<TestDetail>(`/api/tests/${id}`),
   deleteTest: (id: number) => req<{ ok: true }>(`/api/tests/${id}`, { method: 'DELETE' }),

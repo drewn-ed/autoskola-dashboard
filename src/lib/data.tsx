@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { api, type AnswerRow, type Bank, type Profile, type Question, type TestSummary } from './api';
 import { questionStats, statusOf, type QStat, type Status } from './stats';
 
@@ -10,6 +11,9 @@ type Data = {
   status: (q: Question) => Status;
   counts: Record<Status, number>;
   tests: TestSummary[];
+  /** otázky označené „Nerozumím“: id otázky → kdy */
+  flags: Map<number, string>;
+  toggleFlag: (questionId: number) => void;
   profile: Profile;
   saveProfile: (p: Profile) => Promise<void>;
   /** znovu načte odpovědi a testy ze serveru (po procvičování / testu / importu) */
@@ -23,6 +27,7 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
   const [bank, setBank] = useState<Bank | null>(null);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [tests, setTests] = useState<TestSummary[]>([]);
+  const [flags, setFlags] = useState<Map<number, string>>(new Map());
   const [profile, setProfile] = useState<Profile>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -32,21 +37,41 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
     setTests(t);
   }, []);
 
+  const loadFlags = useCallback(async () => {
+    setFlags(new Map((await api.flags()).map((f) => [f.q, f.t])));
+  }, []);
+
   useEffect(() => {
-    Promise.all([api.bank(), refresh(), api.profile()])
+    Promise.all([api.bank(), refresh(), api.profile(), loadFlags()])
       .then(([b, , p]) => {
         setProfile(p);
         setBank(b);
       })
       .catch((e) => setError(e.message));
-  }, [refresh]);
+  }, [refresh, loadFlags]);
 
   // Data se mohla změnit jinde (import ze záložky v jiné kartě)
   useEffect(() => {
-    const onVisible = () => document.visibilityState === 'visible' && refresh();
+    const onVisible = () => document.visibilityState === 'visible' && Promise.all([refresh(), loadFlags()]).catch(() => {});
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [refresh]);
+  }, [refresh, loadFlags]);
+
+  // Označení se projeví hned; když ho server neuloží, vrátí se zpátky
+  const toggleFlag = useCallback((questionId: number) => {
+    const on = !flags.has(questionId);
+    const apply = (set: boolean) => setFlags((prev) => {
+      const next = new Map(prev);
+      if (set) next.set(questionId, new Date().toISOString());
+      else next.delete(questionId);
+      return next;
+    });
+    apply(on);
+    api.setFlag(questionId, on).catch(() => {
+      apply(!on);
+      toast.error('Označení se nepodařilo uložit. Běží aplikace?');
+    });
+  }, [flags]);
 
   const saveProfile = useCallback(async (p: Profile) => {
     await api.saveProfile(p);
@@ -67,11 +92,13 @@ export function DataProvider({ children, fallback }: { children: ReactNode; fall
       status: (q) => statusOf(stats.get(q.id)),
       counts,
       tests,
+      flags,
+      toggleFlag,
       profile,
       saveProfile,
       refresh,
     };
-  }, [bank, answers, tests, profile, saveProfile, refresh]);
+  }, [bank, answers, tests, flags, toggleFlag, profile, saveProfile, refresh]);
 
   if (!data) return <>{fallback(error)}</>;
   return <DataContext.Provider value={data}>{children}</DataContext.Provider>;

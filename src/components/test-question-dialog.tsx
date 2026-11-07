@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { FlagButton } from '@/components/flag-button';
 import { CARD_MEDIA, QuestionCard } from '@/components/question-card';
 import { QuestionView, SnapshotView } from '@/components/question-view';
 import type { TestItem } from '@/lib/api';
@@ -71,7 +72,10 @@ export function TestQuestionDialog({ items, index, onIndexChange }: {
           <Button variant="outline" onClick={() => go(index! - 1)} disabled={index === 0}>
             <ArrowLeftIcon data-icon="inline-start" />Předchozí
           </Button>
-          <span className="num text-sm text-muted-foreground">{index! + 1} z {items.length}</span>
+          <div className="flex items-center gap-3">
+            <span className="num text-sm text-muted-foreground">{index! + 1} z {items.length}</span>
+            {q && <FlagButton questionId={q.id} compact />}
+          </div>
           <Button variant="outline" onClick={() => go(index! + 1)} disabled={index === items.length - 1}>
             Další<ArrowRightIcon data-icon="inline-end" />
           </Button>

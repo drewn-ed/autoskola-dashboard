@@ -1,4 +1,5 @@
 import {
+  CircleHelpIcon,
   ClipboardCheckIcon,
   DownloadIcon,
   HistoryIcon,
@@ -50,6 +51,7 @@ const STUDY = [
   { path: '', label: 'Přehled', icon: LayoutDashboardIcon },
   { path: 'procvicovani', label: 'Procvičování', icon: TargetIcon },
   { path: 'chybovnik', label: 'Chybovník', icon: RotateCcwIcon, count: true },
+  { path: 'nerozumim', label: 'Nerozumím', icon: CircleHelpIcon, flagged: true },
   { path: 'zkouska', label: 'Cvičná zkouška', icon: ClipboardCheckIcon, running: true },
 ];
 const DATA = [
@@ -59,13 +61,13 @@ const DATA = [
 ];
 
 export function AppSidebar({ page }: { page: string }) {
-  const { counts, bank, profile } = useData();
+  const { counts, bank, profile, flags } = useData();
   const [profileOpen, setProfileOpen] = useState(false);
   const { setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const examRunning = useExamRunning();
 
-  const item = (n: { path: string; label: string; icon: typeof TargetIcon; count?: boolean; running?: boolean }) => (
+  const item = (n: { path: string; label: string; icon: typeof TargetIcon; count?: boolean; flagged?: boolean; running?: boolean }) => (
     <SidebarMenuItem key={n.path}>
       {/* Zvýraznění aktivní stránky je jeden prvek, který mezi položkami "překlouže" */}
       {page === n.path && (
@@ -88,6 +90,7 @@ export function AppSidebar({ page }: { page: string }) {
           </motion.span>
         </SidebarMenuBadge>
       )}
+      {n.flagged && flags.size > 0 && <SidebarMenuBadge className="num">{flags.size}</SidebarMenuBadge>}
       {n.running && examRunning && (
         <SidebarMenuBadge className="gap-1.5 text-sign">
           <span className="size-1.5 animate-pulse rounded-full bg-sign" />běží
